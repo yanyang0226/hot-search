@@ -18,7 +18,6 @@
     .tab.active { background: rgba(255,255,255,0.22); color: #fff; border-color: rgba(255,255,255,0.3); }
     .refresh-bar { display: flex; align-items: center; justify-content: space-between; padding: 8px 20px; font-size: 12px; color: rgba(255,255,255,0.4); background: #0d1b2a; }
     .refresh-btn { background: none; border: 1px solid rgba(255,255,255,0.2); color: rgba(255,255,255,0.6); padding: 4px 12px; border-radius: 12px; font-size: 12px; cursor: pointer; }
-    .refresh-btn:active { background: rgba(255,255,255,0.1); }
     .list { padding: 8px 16px 80px; }
     .item { display: flex; align-items: flex-start; gap: 12px; padding: 13px 0; border-bottom: 1px solid rgba(255,255,255,0.06); cursor: pointer; }
     .item:active { background: rgba(255,255,255,0.04); border-radius: 8px; margin: 0 -8px; padding: 13px 8px; }
@@ -61,40 +60,45 @@
 
 <script>
 // ============================================================
-// 今日热榜数据（来源：rebang.today，2026-04-20）
+// 平台配置（使用 tophub.today，通过 CORS 代理抓取）
 // ============================================================
+var CORS_PROXY = 'https://api.allorigins.win/raw?url=';
+
+var PLATFORMS = [
+  { id: 'all',     name: '全站',  url: 'https://tophub.today/c/news' },
+  { id: 'baidu',   name: '百度',  url: 'https://tophub.today/n/Jb0vmloB1G' },
+  { id: 'weibo',   name: '微博',  url: 'https://tophub.today/n/KqndgxeLl9' },
+  { id: 'zhihu',   name: '知乎',  url: 'https://tophub.today/n/mproPpoq6O' },
+  { id: 'weixin',  name: '微信',  url: 'https://tophub.today/n/WnBe01o371' },
+  { id: 'thepaper',name: '澎湃',  url: 'https://tophub.today/n/wWmoO5Rd4E' },
+  { id: 'zhihu_z', name: '知乎日报', url: 'https://tophub.today/n/ZnJ99yO7oR' },
+  { id: 'huxiu',   name: '虎嗅',  url: 'https://tophub.today/n/NR2Gp9dO0v' },
+  { id: 'ithome',  name: 'IT之家', url: 'https://tophub.today/n/K9dAp明月' },
+];
+
+// 兜底数据（tophub.today 服务端渲染，SPA 无法直抓时显示这些）
 var FALLBACK_DATA = {
   all: [
-    {title: "70年产权的房子，实际能住多少年？", source: "知乎", hot: "18489.5", url: "https://www.zhihu.com/question/2018272205939721140"},
-    {title: "为什么云南泼水节变味了？", source: "知乎", hot: "15928.1", url: "https://www.zhihu.com/question/652795560"},
-    {title: "如何看待番茄平台上月稿费80万的金番作者使用AI写作...", source: "知乎", hot: "12340.3", url: "https://www.zhihu.com/question/2027490615500313080"},
-    {title: "网传DeepSeek V4即将发布并提出「去CUDA化」...", source: "知乎", hot: "11324.6", url: "https://www.zhihu.com/question/2028817450829976782"},
-    {title: "如何评价斥资5亿的电影《寻龙诀·觅踪》直接网播了？", source: "知乎", hot: "9188.3", url: "https://www.zhihu.com/question/2027812510628069389"},
-    {title: "公司升级服务器淘汰72根DDR4内存被员工捡回：总容量约2.25TB", source: "IT之家", hot: "9171.4", url: "https://www.ithome.com/0/940/930.htm"},
-    {title: "梁家辉五封影帝，马来西亚籍廖子妤打败章子怡夺影后", source: "知乎", hot: "8907.1", url: "https://www.zhihu.com/question/2029285410929480068"},
-    {title: "网传社科院发布2025中国城市宜居水平排行榜", source: "知乎", hot: "8507.6", url: "https://www.zhihu.com/question/2028968003417498254"},
-    {title: "WSBK荷兰站张雪机车斩获第七名，此前热身赛拿下第一", source: "知乎", hot: "7576.6", url: "https://www.zhihu.com/question/2029259993174601951"},
-    {title: "内存涨价会不会倒逼软件优化，让2gb甚至512m配置重新流行？", source: "知乎", hot: "6418.3", url: "https://www.zhihu.com/question/2018673868974370892"},
-    {title: "美以袭击伊朗进入第52天，当前局势如何？", source: "知乎", hot: "6306.7", url: "https://www.zhihu.com/question/2029314093757064288"},
-    {title: "四大一线城市房价全线上涨，这代表楼市回暖吗？", source: "知乎", hot: "6048.4", url: "https://www.zhihu.com/question/2028419848833708708"},
-    {title: "如何评价李雨桐泄露薛之谦手机号、身份证被行拘？", source: "知乎", hot: "5975.7", url: "https://www.zhihu.com/question/2029251695079682936"},
-    {title: "华为Pura X Max横向阔折叠手机真机曝光，展开就像小平板", source: "IT之家", hot: "5872.1", url: "https://www.ithome.com/0/940/868.htm"},
-    {title: "山西一酒店回访电话暴露行程致家庭破碎？网友热议", source: "知乎", hot: "5850.6", url: "https://www.zhihu.com/question/2029076341014770809"},
-    {title: "宇树人形机器人打破人类1500米世界纪录", source: "知乎", hot: "5830.4", url: "https://www.zhihu.com/question/2029148050057077679"},
-    {title: "为什么沙特会愿意让巴基斯坦驻军自己国家？", source: "知乎", hot: "5782", url: "https://www.zhihu.com/question/2028941915911984616"},
-    {title: "珠海慈善总会号召为乡村孩子捐午睡桌椅，市区孩子仍趴桌午睡", source: "知乎", hot: "5152.4", url: "https://www.zhihu.com/question/2029208982745609165"},
-    {title: "国产光纤全球爆单，部分产品价格暴涨650%", source: "知乎", hot: "5134.9", url: "https://www.zhihu.com/question/2029114416180851719"},
-    {title: "【喷嚏图卦】我只是人", source: "喷嚏网", hot: "5012.8", url: "http://www.dapenti.com/blog/more.asp?name=xilei&id=192516"}
+    {title: "70年产权的房子，实际能住多少年？", source: "知乎", hot: "18497", url: "https://www.zhihu.com/question/2018272205939721140"},
+    {title: "为什么云南泼水节变味了？", source: "知乎", hot: "15941", url: "https://www.zhihu.com/question/652795560"},
+    {title: "如何看待番茄平台上月稿费80万的金番作者使用AI写作...", source: "知乎", hot: "12340", url: "https://www.zhihu.com/question/2027490615500313080"},
+    {title: "网传DeepSeek V4即将发布并提出「去CUDA化」...", source: "知乎", hot: "11324", url: "https://www.zhihu.com/question/2028817450829976782"},
+    {title: "公司升级服务器淘汰72根DDR4内存被员工捡回：约2.25TB", source: "IT之家", hot: "9171", url: "https://www.ithome.com/0/940/930.htm"},
+    {title: "梁家辉五封影帝，马来西亚籍廖子妤打败章子怡夺影后", source: "知乎", hot: "8907", url: "https://www.zhihu.com/question/2029285410929480068"},
+    {title: "网传社科院发布2025中国城市宜居水平排行榜", source: "知乎", hot: "8507", url: "https://www.zhihu.com/question/2028968003417498254"},
+    {title: "WSBK荷兰站张雪机车斩获第七名", source: "知乎", hot: "7576", url: "https://www.zhihu.com/question/2029259993174601951"},
+    {title: "内存涨价会不会倒逼软件优化？", source: "知乎", hot: "6418", url: "https://www.zhihu.com/question/2018673868974370892"},
+    {title: "美以袭击伊朗进入第52天，当前局势如何？", source: "知乎", hot: "6306", url: "https://www.zhihu.com/question/2029314093757064288"},
+    {title: "四大一线城市房价全线上涨，这代表楼市回暖吗？", source: "知乎", hot: "6048", url: "https://www.zhihu.com/question/2028419848833708708"},
+    {title: "日本发生7.5级地震", source: "微博", hot: "150万", url: "https://s.weibo.com/weibo?q=%E6%97%A5%E6%9C%AC7.5%E7%BA%A7%E5%9C%B0%E9%9C%87"},
+    {title: "中方回应美国截停中国驶往伊朗油轮", source: "微博", hot: "90万", url: "https://s.weibo.com/weibo?q=%E4%B8%AD%E6%96%B9%E5%9B%9E%E5%BA%94%E7%BE%8E%E5%9B%BD%E6%88%AA%E5%81%9C%E4%B8%AD%E5%9B%BD%E9%A9%B6%E5%BE%80%E4%BC%8A%E6%9C%97%E6%B2%B9%E8%BD%AE"},
+    {title: "2025年我国人均读书8.39本", source: "微博", hot: "73万", url: "https://s.weibo.com/weibo?q=2025%E5%B9%B4%E6%88%91%E5%9B%BD%E4%BA%BA%E5%9D%87%E8%AF%BB%E4%B9%A68.39%E6%9C%AC"},
+    {title: "华为Pura系列新品发布", source: "微博", hot: "72万", url: "https://s.weibo.com/weibo?q=%E5%8D%8E%E4%B8%BAPura%E7%B3%BB%E5%88%97%E6%96%B0%E5%93%81%E5%8F%91%E5%B8%83"}
   ]
 };
 
-// 平台 tabs
-var PLATFORMS = [
-  { id: 'all',  name: '全站' }
-];
-
 var currentPlatform = 'all';
-var dataCache = { all: FALLBACK_DATA.all };
+var dataCache = {};
 var _netError = false;
 
 function escHtml(s) {
@@ -102,64 +106,70 @@ function escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
-function loadRebang() {
-  return new Promise(function(resolve) {
-    var timeout = setTimeout(function() {
-      _netError = true;
-      resolve(null);
-    }, 12000);
-
-    // 通过 CORS proxy 获取 rebang.today 页面内容
-    var proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent('https://rebang.today/');
-    var xhr = new XMLHttpRequest();
-    xhr.open('GET', proxyUrl, true);
-    xhr.onload = function() {
-      clearTimeout(timeout);
-      if (xhr.status === 200) {
-        var parser = new DOMParser();
-        var doc = parser.parseFromString(xhr.responseText, 'text/html');
-        var items = parseRebangDOM(doc);
-        if (items && items.length > 0) {
-          _netError = false;
-          resolve(items);
-          return;
+// 解析 tophub.today HTML，提取热榜数据
+function parseTopHubHTML(html, platformId) {
+  try {
+    var parser = new DOMParser();
+    var doc = parser.parseFromString(html, 'text/html');
+    var items = [];
+    
+    // 遍历所有包含热榜条目的列表
+    var allLinks = doc.querySelectorAll('a[href*="zhihu"], a[href*="weibo"], a[href*="baidu"], a[href*="thepaper"], a[href*="mp.weixin"], a[href*="ithome"], a[href*="douban"], a[href*="huxiu"]');
+    
+    allLinks.forEach(function(link) {
+      var href = link.href;
+      var text = link.textContent.trim();
+      
+      // 过滤掉太短的标题、导航链接等
+      if (text.length < 8) return;
+      if (href.includes('javascript') || href === '#') return;
+      if (href.includes('tophub.today')) return;
+      
+      // 排除导航/菜单链接
+      var excludePatterns = ['登录', '注册', '首页', '晚报', '动态', '追踪', '榜中榜', '热文库', '话题', '日历', '更多'];
+      for (var i = 0; i < excludePatterns.length; i++) {
+        if (text === excludePatterns[i] || text.startsWith(excludePatterns[i])) return;
+      }
+      
+      // 获取对应的热度值（向上查找最近的 .w1 span）
+      var hotValue = '';
+      var parent = link.closest('.w1');
+      if (parent) {
+        var hotEl = parent.querySelector('span');
+        if (hotEl) hotValue = hotEl.textContent.replace(/热度|\\s/g, '').trim();
+      }
+      
+      // 获取来源（向上找最近的 .t 元素）
+      var sourceEl = link.closest('.node-i, .nodeblock');
+      var sourceName = '';
+      if (sourceEl) {
+        var tEl = sourceEl.querySelector('.t');
+        if (tEl) sourceName = tEl.textContent.replace(/\\s/g, '').trim();
+        else {
+          // 尝试从父级获取来源名
+          var titleEl = sourceEl.querySelector('a:not([href*="javascript"])');
+          if (titleEl && titleEl !== link) {
+            sourceName = titleEl.textContent.replace(/\\s/g, '').trim();
+          }
         }
       }
-      _netError = true;
-      resolve(null);
-    };
-    xhr.onerror = function() {
-      clearTimeout(timeout);
-      _netError = true;
-      resolve(null);
-    };
-    xhr.send();
-  });
-}
-
-function parseRebangDOM(doc) {
-  try {
-    var items = [];
-    // rebang.today 页面结构：listitem 包含 rank / title / source / hot
-    var listItems = doc.querySelectorAll('main .listitem');
-    listItems.forEach(function(li) {
-      var rankEl = li.querySelector('.rank, [class*="rank"]');
-      var linkEl = li.querySelector('a[href*="zhihu"], a[href*="weibo"], a[href*="ithome"], a[href*="douban"]');
-      if (!linkEl) return;
-      var title = linkEl.textContent.trim().substring(0, 80);
-      // 去掉标题中的描述文字（标题后紧跟的内容）
-      var rawTitle = title;
-      var url = linkEl.href;
-      // 来源
-      var sourceEl = li.querySelector('[class*="source"], [class*="tag"]');
-      var source = sourceEl ? sourceEl.textContent.trim() : '热榜';
-      // 热度
-      var hotEl = li.querySelector('[class*="hot"], [class*="heat"]');
-      var hot = hotEl ? hotEl.textContent.trim().replace('热度', '') : '';
-      if (title) {
-        items.push({ title: title, source: source, hot: hot, url: url });
-      }
+      
+      items.push({
+        title: text.substring(0, 100),
+        source: sourceName || platformId,
+        hot: hotValue,
+        url: href
+      });
     });
+    
+    // 去重
+    var seen = {};
+    items = items.filter(function(item) {
+      if (seen[item.title]) return false;
+      seen[item.title] = true;
+      return true;
+    });
+    
     return items;
   } catch(e) {
     return null;
@@ -167,12 +177,37 @@ function parseRebangDOM(doc) {
 }
 
 function loadAPI(platformId) {
-  return loadRebang().then(function(items) {
-    if (items) {
-      dataCache[platformId] = items;
-      return items;
-    }
-    return FALLBACK_DATA[platformId] || [];
+  return new Promise(function(resolve) {
+    var p = PLATFORMS.find(function(x) { return x.id === platformId; });
+    if (!p) { resolve([]); return; }
+
+    var proxyUrl = CORS_PROXY + encodeURIComponent(p.url);
+    var timeout = setTimeout(function() {
+      _netError = true;
+      resolve(FALLBACK_DATA[platformId] || FALLBACK_DATA['all'] || []);
+    }, 15000);
+
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', proxyUrl, true);
+    xhr.onload = function() {
+      clearTimeout(timeout);
+      if (xhr.status === 200 && xhr.responseText.length > 1000) {
+        var items = parseTopHubHTML(xhr.responseText, platformId);
+        if (items && items.length > 0) {
+          _netError = false;
+          resolve(items);
+          return;
+        }
+      }
+      _netError = true;
+      resolve(FALLBACK_DATA[platformId] || FALLBACK_DATA['all'] || []);
+    };
+    xhr.onerror = function() {
+      clearTimeout(timeout);
+      _netError = true;
+      resolve(FALLBACK_DATA[platformId] || FALLBACK_DATA['all'] || []);
+    };
+    xhr.send();
   });
 }
 
@@ -207,9 +242,9 @@ function renderList() {
   var items = dataCache[currentPlatform];
   if (!items || items.length === 0) {
     var hint = _netError
-      ? '<div class="error-hint">实时数据获取失败，显示本地缓存数据<br>数据来源：rebang.today 今日热榜</div>'
+      ? '<div class="error-hint">实时数据获取失败，显示本地缓存数据<br>数据来源：tophub.today</div>'
       : '<div class="error-hint">数据加载失败，请点击刷新按钮重试</div>';
-    listEl.innerHTML = '<div class="error-msg">No data. Try refresh.<span class="source-badge">rebang.today</span>' + hint + '</div>';
+    listEl.innerHTML = '<div class="error-msg">No data. Try refresh.<span class="source-badge">tophub.today</span>' + hint + '</div>';
     return;
   }
   window._netError = false;
@@ -224,7 +259,7 @@ function renderList() {
       hotSvg +
       '<div class="content">' +
         '<div class="title">' + escHtml(item.title) + '</div>' +
-        '<div class="source-tag">' + escHtml(item.source || '') + (item.hot ? ' · ' + item.hot + '热度' : '') + '</div>' +
+        '<div class="source-tag">' + escHtml(item.source || '') + (item.hot ? ' · ' + item.hot : '') + '</div>' +
       '</div>' +
     '</div>';
   }
@@ -240,7 +275,24 @@ function renderList() {
 
 async function loadAll() {
   showLoading();
-  dataCache[currentPlatform] = await loadAPI(currentPlatform);
+  // 预加载前两个平台的数据
+  var promises = [
+    loadAPI('all'),
+    loadAPI('baidu'),
+    loadAPI('weibo')
+  ];
+  var results = await Promise.all(promises);
+  dataCache['all'] = results[0] || [];
+  dataCache['baidu'] = results[1] || [];
+  dataCache['weibo'] = results[2] || [];
+  
+  // 其他平台暂时用兜底
+  PLATFORMS.forEach(function(p) {
+    if (!dataCache[p.id]) {
+      dataCache[p.id] = FALLBACK_DATA['all'] || [];
+    }
+  });
+  
   renderList();
   var now = new Date();
   document.getElementById('updateTime').textContent =
