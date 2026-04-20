@@ -114,9 +114,11 @@
 
 <script>
 // ============================================================
-// 配置：API 地址（NAS Docker 内网）
+// 配置：API 地址
+// 部署 Cloudflare Worker 后，把下面的 YOUR_WORKER_URL 换成你的 Worker 地址
+// 例如：var API_BASE = 'https://hotsearch.yourname.workers.dev';
 // ============================================================
-var API_BASE = window.location.protocol + '//' + window.location.hostname + ':3001';
+var API_BASE = 'https://hotsearch-worker.你的用户名.workers.dev';
 
 // 平台配置
 var PLATFORMS = [

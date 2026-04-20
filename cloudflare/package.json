@@ -1,0 +1,12 @@
+{
+  "name": "hotsearch-worker",
+  "version": "1.0.0",
+  "description": "Cloudflare Worker - 热榜API + 文章代理",
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev --local"
+  },
+  "devDependencies": {
+    "wrangler": "^3.0.0"
+  }
+}
