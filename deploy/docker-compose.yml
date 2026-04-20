@@ -1,0 +1,78 @@
+# ============================================================
+# 飞牛NAS (fnOS) Docker 部署
+# 
+# 包含：
+#   RSSHub     → http://NASIP:1200   (RSS 订阅源生成器)
+#   热榜API    → http://NASIP:3001   (热搜数据 API)
+#   热榜前端   → http://NASIP:3000   (带内嵌阅读器的热榜 App)
+#
+# 部署方法：
+#   飞牛NAS WebUI → Docker → 项目 → 导入项目 → 上传此文件
+#   或 SSH 进 NAS → cd 到目录 → docker-compose up -d
+# ============================================================
+
+services:
+
+  # ----------------------------------------------------------
+  # RSSHub - 通用 RSS 生成器（支持上千个网站）
+  # 文档：https://docs.rsshub.app/
+  # ----------------------------------------------------------
+  rsshub:
+    image: diygod/rsshub:latest
+    container_name: rsshub
+    restart: unless-stopped
+    ports:
+      - "1200:1200"
+    environment:
+      - TZ=Asia/Shanghai
+      - LANG=zh_CN.UTF-8
+      - LOG_LEVEL=info
+      - CACHE_EXPIRE=300
+      - CONCURRENT_REQUESTS=10
+      # 如需代理：取消下面两行注释并填入代理地址
+      # - HTTP_PROXY=http://your-proxy:port
+      # - HTTPS_PROXY=http://your-proxy:port
+    volumes:
+      - rsshub-data:/app/data
+    networks:
+      - hotnet
+
+  # ----------------------------------------------------------
+  # 热榜 API - 聚合 tophub.today 多平台热搜数据
+  # ----------------------------------------------------------
+  hotapi:
+    build:
+      context: ./hotapi
+      dockerfile: Dockerfile
+    container_name: hotapi
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      - TZ=Asia/Shanghai
+      - NODE_ENV=production
+      - PORT=3001
+    networks:
+      - hotnet
+
+  # ----------------------------------------------------------
+  # 热榜前端 - 带内嵌阅读器的热榜 App
+  # ----------------------------------------------------------
+  hotfront:
+    image: nginx:alpine
+    container_name: hotfront
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    volumes:
+      - ./hotfront:/usr/share/nginx/html:ro
+    networks:
+      - hotnet
+
+networks:
+  hotnet:
+    driver: bridge
+
+volumes:
+  rsshub-data:
+    driver: local

@@ -1,0 +1,14 @@
+{
+  "name": "hotapi",
+  "version": "1.0.0",
+  "description": "热榜聚合 API - 从 tophub.today 抓取多平台热搜数据",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "cheerio": "^1.0.0"
+  }
+}

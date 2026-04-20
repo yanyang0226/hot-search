@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#1e3a5f">
+  <title>热榜 - 内嵌阅读</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#x1F525;</text></svg>">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Helvetica Neue', sans-serif; background: #0d1b2a; color: #e0e6ed; min-height: 100vh; }
+
+    /* ===== 主列表页 ===== */
+    header { background: linear-gradient(135deg, #1e3a5f 0%, #2d5a87 100%); padding: 16px 20px 12px; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 12px rgba(0,0,0,0.3); }
+    .header-title { font-size: 20px; font-weight: 700; color: #fff; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+    .tabs { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 0 20px; }
+    .tabs::-webkit-scrollbar { display: none; }
+    .tab { padding: 7px 14px; border-radius: 20px; font-size: 14px; font-weight: 500; white-space: nowrap; cursor: pointer; transition: all 0.2s; background: rgba(255,255,255,0.12); color: rgba(255,255,255,0.7); border: 1px solid transparent; flex-shrink: 0; }
+    .tab.active { background: rgba(255,255,255,0.22); color: #fff; border-color: rgba(255,255,255,0.3); }
+    .refresh-bar { display: flex; align-items: center; justify-content: space-between; padding: 8px 20px; font-size: 12px; color: rgba(255,255,255,0.4); background: #0d1b2a; }
+    .refresh-btn { background: none; border: 1px solid rgba(255,255,255,0.2); color: rgba(255,255,255,0.6); padding: 4px 12px; border-radius: 12px; font-size: 12px; cursor: pointer; }
+    .list { padding: 8px 16px 80px; }
+    .item { display: flex; align-items: flex-start; gap: 12px; padding: 13px 0; border-bottom: 1px solid rgba(255,255,255,0.06); cursor: pointer; transition: background 0.15s; }
+    .item:active { background: rgba(255,255,255,0.05); border-radius: 8px; margin: 0 -8px; padding: 13px 8px; }
+    .item:hover { background: rgba(255,255,255,0.03); }
+    .rank { min-width: 22px; height: 22px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; margin-top: 1px; flex-shrink: 0; }
+    .rank.top1 { background: #ff4757; color: #fff; }
+    .rank.top2 { background: #ff6b35; color: #fff; }
+    .rank.top3 { background: #ffa502; color: #fff; }
+    .rank.other { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.5); }
+    .content { flex: 1; min-width: 0; }
+    .title { font-size: 15px; font-weight: 500; color: #e8edf4; line-height: 1.5; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; word-break: break-all; }
+    .meta { display: flex; align-items: center; gap: 8px; margin-top: 5px; }
+    .source { font-size: 11px; color: rgba(255,255,255,0.4); }
+    .hot { font-size: 11px; color: #ff6b7a; }
+    .hot-icon { width: 14px; height: 14px; flex-shrink: 0; }
+    .loading { text-align: center; padding: 60px 0; color: rgba(255,255,255,0.4); font-size: 14px; }
+    .spinner { width: 32px; height: 32px; border: 3px solid rgba(255,255,255,0.1); border-top-color: #2d5a87; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 12px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .error-msg { text-align: center; padding: 40px 20px; color: rgba(255,255,255,0.4); font-size: 14px; line-height: 1.8; }
+    .fab { position: fixed; bottom: 24px; right: 24px; width: 48px; height: 48px; border-radius: 50%; background: linear-gradient(135deg, #2d5a87, #1e3a5f); color: #fff; border: none; font-size: 20px; cursor: pointer; box-shadow: 0 4px 16px rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; }
+    .fab:active { transform: scale(0.95); }
+    .fab-icon { font-size: 18px; }
+    .hide { display: none !important; }
+    .api-status { font-size: 11px; padding: 2px 8px; border-radius: 10px; margin-left: 6px; }
+    .api-status.ok { background: rgba(76,175,80,0.2); color: #81c784; }
+    .api-status.offline { background: rgba(255,82,82,0.2); color: #ff6b7a; }
+
+    /* ===== 阅读器页面 ===== */
+    .reader-page {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: #fff; color: #222;
+      z-index: 200;
+      display: flex; flex-direction: column;
+      transform: translateX(100%);
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .reader-page.open { transform: translateX(0); }
+    .reader-header { display: flex; align-items: center; padding: 12px 16px; border-bottom: 1px solid #eee; background: #fafafa; position: sticky; top: 0; z-index: 10; gap: 12px; }
+    .back-btn { background: none; border: none; font-size: 16px; color: #2d5a87; cursor: pointer; padding: 6px 12px; border-radius: 20px; flex-shrink: 0; }
+    .back-btn:active { background: #f0f0f0; }
+    .reader-source { font-size: 13px; color: #888; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .open-original { background: none; border: 1px solid #ddd; color: #666; font-size: 12px; padding: 4px 10px; border-radius: 20px; cursor: pointer; flex-shrink: 0; white-space: nowrap; }
+    .open-original:active { background: #f0f0f0; }
+    .reader-body { flex: 1; overflow-y: auto; padding: 24px 20px 60px; max-width: 720px; margin: 0 auto; }
+    .reader-title { font-size: 22px; font-weight: 700; color: #111; line-height: 1.6; margin-bottom: 12px; }
+    .reader-meta { font-size: 13px; color: #999; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid #f0f0f0; }
+    .reader-content { font-size: 17px; line-height: 1.85; color: #333; }
+    .reader-content p { margin-bottom: 18px; }
+    .reader-content img { max-width: 100%; height: auto; border-radius: 8px; margin: 16px 0; display: block; }
+    .reader-content a { color: #2d5a87; text-decoration: none; }
+    .reader-content a:hover { text-decoration: underline; }
+    .reader-loading { text-align: center; padding: 80px 0; color: #999; }
+    .reader-loading-spinner { width: 36px; height: 36px; border: 3px solid #eee; border-top-color: #2d5a87; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 16px; }
+    .reader-error { text-align: center; padding: 60px 20px; color: #999; }
+    .reader-error .hint { font-size: 13px; margin-top: 10px; color: #bbb; }
+  </style>
+</head>
+<body>
+
+<!-- ===== 主热榜列表页 ===== -->
+<header>
+  <div class="header-title">
+    <span>&#x1F525;</span>
+    <span>热榜</span>
+    <span id="apiStatus" class="api-status ok">NAS</span>
+  </div>
+  <div class="tabs" id="tabs"></div>
+</header>
+
+<div class="refresh-bar">
+  <span id="updateTime">--</span>
+  <span id="platformCount"></span>
+  <button class="refresh-btn" id="refreshBtn">&#x1F504; 刷新</button>
+</div>
+
+<div id="list" class="list"></div>
+<div id="fab" class="fab hide" onclick="window.scrollTo({top:0,behavior:'smooth'})"><span class="fab-icon">&#x2191;</span></div>
+
+<!-- ===== 内嵌阅读器 ===== -->
+<div id="readerPage" class="reader-page">
+  <div class="reader-header">
+    <button class="back-btn" id="backBtn">&#x2190; 返回</button>
+    <span class="reader-source" id="readerSource"></span>
+    <button class="open-original" id="openOriginal">浏览器打开</button>
+  </div>
+  <div class="reader-body" id="readerBody">
+    <div class="reader-loading">
+      <div class="reader-loading-spinner"></div>
+      正在加载文章内容...
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// 配置：API 地址（NAS Docker 内网）
+// ============================================================
+var API_BASE = window.location.protocol + '//' + window.location.hostname + ':3001';
+
+// 平台配置
+var PLATFORMS = [
+  { id: 'baidu',    name: '百度' },
+  { id: 'weibo',    name: '微博' },
+  { id: 'zhihu',    name: '知乎' },
+  { id: 'weixin',   name: '微信' },
+  { id: 'thepaper', name: '澎湃' },
+  { id: 'huxiu',    name: '虎嗅' },
+  { id: 'ithome',   name: 'IT之家' },
+  { id: 'all',      name: '全站' },
+];
+
+var currentPlatform = 'baidu';
+var dataCache = {};
+
+function escHtml(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// 加载热搜列表
+function loadAPI(platformId) {
+  return new Promise(function(resolve) {
+    var url = API_BASE + '/api/' + platformId;
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', url, true);
+    xhr.timeout = 12000;
+    xhr.onload = function() {
+      if (xhr.status === 200 && xhr.responseText) {
+        try {
+          var data = JSON.parse(xhr.responseText);
+          if (data.code === 1 && data.items) {
+            resolve(data.items);
+            return;
+          }
+        } catch(e) {}
+      }
+      resolve([]);
+    };
+    xhr.onerror = function() { resolve([]); };
+    xhr.ontimeout = function() { resolve([]); };
+    xhr.send();
+  });
+}
+
+// 加载文章内容（通过 NAS hotapi 代理，无 CORS 问题）
+function loadArticleContent(url) {
+  return new Promise(function(resolve) {
+    // 通过 NAS hotapi 代理 fetch，避免 CORS
+    var proxyUrl = API_BASE + '/proxy?url=' + encodeURIComponent(url);
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', proxyUrl, true);
+    xhr.timeout = 20000;
+    xhr.onload = function() {
+      if (xhr.status === 200 && xhr.responseText && xhr.responseText.length > 100) {
+        resolve(xhr.responseText);
+      } else {
+        resolve(null);
+      }
+    };
+    xhr.onerror = function() { resolve(null); };
+    xhr.ontimeout = function() { resolve(null); };
+    xhr.send();
+  });
+}
+
+// 解析文章正文
+function parseArticle(html, url) {
+  try {
+    var parser = new DOMParser();
+    var doc = parser.parseFromString(html, 'text/html');
+
+    // 移除脚本/样式/导航/侧边栏/评论
+    ['script', 'style', 'nav', 'header', 'footer', 'aside', '.sidebar',
+     '.nav', '.menu', '.comment', '.advertisement', '.ad', '.related',
+     '[role="navigation"]', '[role="banner"]', '[role="contentinfo"]',
+     '.share', '.social', '.toolbar', '.fixed', '.sticky'].forEach(function(sel) {
+      try { doc.querySelectorAll(sel).forEach(function(el) { el.remove(); }); } catch(e) {}
+    });
+
+    // 提取标题
+    var title = '';
+    var h1 = doc.querySelector('h1') || doc.querySelector('.article-title') || doc.querySelector('.post-title') || doc.querySelector('article h2');
+    if (h1) title = h1.textContent.trim();
+    if (!title) {
+      var titleTag = doc.querySelector('title');
+      if (titleTag) title = titleTag.textContent.replace(/_.*$/, '').trim();
+    }
+
+    // 提取 meta description
+    var desc = '';
+    var metaDesc = doc.querySelector('meta[name="description"]');
+    if (metaDesc) desc = metaDesc.getAttribute('content') || '';
+
+    // 提取正文
+    var contentEl = doc.querySelector('article') ||
+                    doc.querySelector('.article-content') ||
+                    doc.querySelector('.post-content') ||
+                    doc.querySelector('#article-content') ||
+                    doc.querySelector('.entry-content') ||
+                    doc.querySelector('.content') ||
+                    doc.querySelector('main') ||
+                    doc.body;
+
+    var paragraphs = [];
+    var els = contentEl.querySelectorAll('p, h1, h2, h3, h4, li, blockquote, pre');
+    if (els.length === 0) els = contentEl.children;
+
+    els.forEach(function(el) {
+      var text = el.textContent.trim();
+      // 过滤掉太短的、太像导航的
+      if (text.length < 20) return;
+      if (['登录', '注册', '收藏', '评论', '分享', '上一篇', '下一篇', '相关推荐', '相关阅读'].some(function(w) { return text.startsWith(w); })) return;
+
+      var tag = el.tagName.toLowerCase();
+      if (['h1', 'h2', 'h3', 'h4'].includes(tag)) {
+        paragraphs.push({ type: 'heading', text: text });
+      } else if (tag === 'blockquote') {
+        paragraphs.push({ type: 'quote', text: text });
+      } else {
+        paragraphs.push({ type: 'p', text: text });
+      }
+    });
+
+    // 如果正文太少，用整个 body
+    if (paragraphs.length < 3) {
+      var allText = doc.body.textContent.replace(/[\n\r]+/g, '\n').split('\n').filter(function(t) { return t.trim().length > 30; });
+      paragraphs = allText.slice(0, 30).map(function(t) { return { type: 'p', text: t.trim() }; });
+    }
+
+    return { title: title, desc: desc, paragraphs: paragraphs };
+  } catch(e) {
+    return null;
+  }
+}
+
+// 渲染阅读器
+function openReader(title, url, source) {
+  var readerPage = document.getElementById('readerPage');
+  var readerBody = document.getElementById('readerBody');
+  var readerSource = document.getElementById('readerSource');
+  var openOriginal = document.getElementById('openOriginal');
+
+  readerSource.textContent = source || '';
+  openOriginal.onclick = function() { window.open(url, '_blank'); };
+  openOriginal.style.display = '';
+
+  readerBody.innerHTML = '<div class="reader-loading"><div class="reader-loading-spinner"></div>正在加载文章内容...</div>';
+  readerPage.classList.add('open');
+  document.body.style.overflow = 'hidden';
+
+  loadArticleContent(url).then(function(html) {
+    if (!html) {
+      readerBody.innerHTML = '<div class="reader-error">无法加载文章内容<div class="hint">可能是因为该网站禁止抓取<br><a href="' + url + '" target="_blank">点击这里在浏览器中打开</a></div></div>';
+      return;
+    }
+    var article = parseArticle(html, url);
+    if (!article || !article.paragraphs || article.paragraphs.length === 0) {
+      readerBody.innerHTML = '<div class="reader-error">无法解析文章内容<div class="hint"><a href="' + url + '" target="_blank">点击这里在浏览器中打开</a></div></div>';
+      return;
+    }
+
+    var html = '<h1 class="reader-title">' + escHtml(article.title || title) + '</h1>';
+    if (article.desc) html += '<div class="reader-meta">' + escHtml(article.desc) + '</div>';
+    html += '<div class="reader-content">';
+    article.paragraphs.forEach(function(item) {
+      if (item.type === 'heading') {
+        html += '<p style="font-size:19px;font-weight:700;margin:20px 0 10px;color:#111">' + escHtml(item.text) + '</p>';
+      } else if (item.type === 'quote') {
+        html += '<blockquote style="border-left:3px solid #2d5a87;padding-left:16px;margin:16px 0;color:#555;font-style:italic">' + escHtml(item.text) + '</blockquote>';
+      } else {
+        html += '<p>' + escHtml(item.text) + '</p>';
+      }
+    });
+    html += '</div>';
+    readerBody.innerHTML = html;
+    readerBody.scrollTop = 0;
+  });
+}
+
+function closeReader() {
+  var readerPage = document.getElementById('readerPage');
+  readerPage.classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+document.getElementById('backBtn').onclick = closeReader;
+
+// 返回手势支持
+var startX = 0;
+document.getElementById('readerPage').addEventListener('touchstart', function(e) { startX = e.touches[0].clientX; }, { passive: true });
+document.getElementById('readerPage').addEventListener('touchend', function(e) {
+  var deltaX = e.changedTouches[0].clientX - startX;
+  if (deltaX > 80) closeReader();
+}, { passive: true });
+
+// 渲染 tabs
+function renderTabs() {
+  var tabsEl = document.getElementById('tabs');
+  tabsEl.innerHTML = PLATFORMS.map(function(p) {
+    return '<div class="tab' + (p.id === currentPlatform ? ' active' : '') + '" data-id="' + p.id + '">' + p.name + '</div>';
+  }).join('');
+  tabsEl.querySelectorAll('.tab').forEach(function(tab) {
+    tab.onclick = function() {
+      currentPlatform = this.getAttribute('data-id');
+      renderTabs();
+      renderList();
+    };
+  });
+}
+
+// 渲染列表
+function renderList() {
+  var listEl = document.getElementById('list');
+  var items = dataCache[currentPlatform] || [];
+  if (items.length === 0) {
+    listEl.innerHTML = '<div class="error-msg">暂无数据<br><span style="font-size:12px;color:rgba(255,255,255,0.25)">请检查 NAS 服务是否启动</span></div>';
+    return;
+  }
+  var html = '';
+  items.forEach(function(item, i) {
+    var rank = i + 1;
+    var rankCls = rank === 1 ? 'top1' : rank === 2 ? 'top2' : rank === 3 ? 'top3' : 'other';
+    html += '<div class="item" data-title="' + escHtml(item.title) + '" data-url="' + escHtml(item.url) + '" data-source="' + escHtml(item.source || '') + '">' +
+      '<div class="rank ' + rankCls + '">' + rank + '</div>' +
+      '<div class="content">' +
+        '<div class="title">' + escHtml(item.title) + '</div>' +
+        '<div class="meta">' +
+          '<span class="source">' + escHtml(item.source || '') + '</span>' +
+          (item.hot ? '<span class="hot">&#x1F525; ' + escHtml(item.hot) + '</span>' : '') +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  });
+  listEl.innerHTML = html;
+  listEl.querySelectorAll('.item').forEach(function(el) {
+    el.onclick = function() {
+      var title = this.getAttribute('data-title');
+      var url = this.getAttribute('data-url');
+      var source = this.getAttribute('data-source');
+      openReader(title, url, source);
+    };
+  });
+}
+
+// 加载全部数据
+async function loadAll() {
+  if (!dataCache[currentPlatform]) {
+    document.getElementById('list').innerHTML = '<div class="loading"><div class="spinner"></div>加载中...</div>';
+  }
+  var items = await loadAPI(currentPlatform);
+  dataCache[currentPlatform] = items;
+  document.getElementById('platformCount').textContent = items.length > 0 ? items.length + ' 条' : '';
+  renderList();
+  var now = new Date();
+  document.getElementById('updateTime').textContent = '更新 ' + ('0'+now.getHours()).slice(-2) + ':' + ('0'+now.getMinutes()).slice(-2);
+}
+
+// 检查 API 状态
+function checkApiStatus() {
+  var statusEl = document.getElementById('apiStatus');
+  var xhr = new XMLHttpRequest();
+  xhr.open('GET', API_BASE + '/health', true);
+  xhr.timeout = 5000;
+  xhr.onload = function() {
+    if (xhr.status === 200) {
+      statusEl.className = 'api-status ok';
+      statusEl.textContent = 'NAS在线';
+    } else {
+      statusEl.className = 'api-status offline';
+      statusEl.textContent = 'NAS离线';
+    }
+  };
+  xhr.onerror = function() {
+    statusEl.className = 'api-status offline';
+    statusEl.textContent = 'NAS离线';
+  };
+  xhr.ontimeout = function() {
+    statusEl.className = 'api-status offline';
+    statusEl.textContent = 'NAS离线';
+  };
+  xhr.send();
+}
+
+// 滚动监听
+window.addEventListener('scroll', function() {
+  document.getElementById('fab').classList.toggle('hide', window.scrollY < 300);
+});
+
+// 初始化
+document.getElementById('refreshBtn').onclick = loadAll;
+renderTabs();
+checkApiStatus();
+loadAll();
+
+// 每 5 分钟自动刷新
+setInterval(function() {
+  checkApiStatus();
+  if (document.getElementById('readerPage').classList.contains('open') === false) {
+    loadAll();
+  }
+}, 5 * 60 * 1000);
+</script>
+</body>
+</html>
