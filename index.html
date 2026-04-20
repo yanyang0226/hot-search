@@ -56,7 +56,10 @@
 <div id="fab" class="fab hide" id="fabBtn">&#x2191;</div>
 
 <script>
-window._hotData = null;
+// The API uses 'hotlist' as the JSONP callback function name
+window.hotlist = function(data) {
+  window._hotData = data;
+};
 
 var PLATFORMS = [
   { id: 'baidu',  name: 'Baidu',   api: 'https://zj.v.api.aa1.cn/api/baidu-rs/' },
@@ -75,21 +78,22 @@ function jsonp(url, callback) {
   var timeout = setTimeout(function() {
     cleanup();
     callback(null);
-  }, 12000);
+  }, 15000);
 
   function cleanup() {
     clearTimeout(timeout);
-    delete window[id];
     if (script.parentNode) script.parentNode.removeChild(script);
   }
 
-  window[id] = function(data) {
+  // Store callback in global scope with fixed name 'hotlist'
+  // The API always calls window.hotlist()
+  window._jsonpCallback = callback;
+  script.src = url + '?callback=hotlist';
+  script.onload = function() {
     cleanup();
-    callback(data);
+    // After script loads, window.hotlist was called and set _hotData
+    callback(window._hotData);
   };
-
-  var sep = url.indexOf('?') >= 0 ? '&' : '?';
-  script.src = url + sep + 'callback=' + id;
   script.onerror = function() {
     cleanup();
     callback(null);
@@ -184,7 +188,7 @@ function renderList() {
   }
 }
 
-async function loadAll() {
+function loadAll() {
   showLoading();
   var loaded = 0;
   var done = false;
