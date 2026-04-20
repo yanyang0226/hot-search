@@ -6,21 +6,23 @@
   <meta name="theme-color" content="#1e3a5f">
   <title>Hot Search</title>
   <link rel="manifest" href="manifest.json">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#x1F525;</text></svg>">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔥</text></svg>">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Helvetica Neue', sans-serif; background: #0d1b2a; color: #e0e6ed; min-height: 100vh; overflow-x: hidden; }
+
+    /* ===== 列表页 ===== */
     header { background: linear-gradient(135deg, #1e3a5f 0%, #2d5a87 100%); padding: 16px 20px 12px; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 12px rgba(0,0,0,0.3); }
     .header-title { font-size: 20px; font-weight: 700; color: #fff; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
     .tabs { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 0 20px; }
     .tabs::-webkit-scrollbar { display: none; }
-    .tab { padding: 7px 14px; border-radius: 20px; font-size: 14px; font-weight: 500; white-space: nowrap; cursor: pointer; transition: all 0.2s; background: rgba(255,255,255,0.12); color: rgba(255,255,255,0.7); border: 1px solid transparent; }
+    .tab { padding: 7px 14px; border-radius: 20px; font-size: 14px; font-weight: 500; white-space: nowrap; cursor: pointer; transition: all 0.2s; background: rgba(255,255,255,0.12); color: rgba(255,255,255,0.7); border: 1px solid transparent; flex-shrink: 0; }
     .tab.active { background: rgba(255,255,255,0.22); color: #fff; border-color: rgba(255,255,255,0.3); }
     .refresh-bar { display: flex; align-items: center; justify-content: space-between; padding: 8px 20px; font-size: 12px; color: rgba(255,255,255,0.4); background: #0d1b2a; }
     .refresh-btn { background: none; border: 1px solid rgba(255,255,255,0.2); color: rgba(255,255,255,0.6); padding: 4px 12px; border-radius: 12px; font-size: 12px; cursor: pointer; }
     .list { padding: 8px 16px 80px; }
     .item { display: flex; align-items: flex-start; gap: 12px; padding: 13px 0; border-bottom: 1px solid rgba(255,255,255,0.06); cursor: pointer; }
-    .item:active { background: rgba(255,255,255,0.04); border-radius: 8px; margin: 0 -8px; padding: 13px 8px; }
+    .item:active { background: rgba(255,255,255,0.05); border-radius: 8px; margin: 0 -8px; padding: 13px 8px; }
     .rank { min-width: 22px; height: 22px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; margin-top: 1px; flex-shrink: 0; }
     .rank.top1 { background: #ff4757; color: #fff; }
     .rank.top2 { background: #ff6b35; color: #fff; }
@@ -28,35 +30,81 @@
     .rank.other { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.5); }
     .content { flex: 1; min-width: 0; }
     .title { font-size: 15px; font-weight: 500; color: #e8edf4; line-height: 1.5; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; word-break: break-all; }
-    .desc { font-size: 12px; color: rgba(255,255,255,0.35); margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .source-tag { font-size: 11px; color: rgba(255,255,255,0.45); margin-top: 2px; }
+    .source-tag { font-size: 11px; color: rgba(255,255,255,0.45); margin-top: 4px; }
     .hot-icon { width: 14px; height: 14px; flex-shrink: 0; margin-top: 3px; }
     .loading { text-align: center; padding: 60px 0; color: rgba(255,255,255,0.4); font-size: 14px; }
     .spinner { width: 32px; height: 32px; border: 3px solid rgba(255,255,255,0.1); border-top-color: #2d5a87; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 12px; }
     @keyframes spin { to { transform: rotate(360deg); } }
     .error-msg { text-align: center; padding: 40px 20px; color: rgba(255,255,255,0.4); font-size: 14px; line-height: 1.8; }
-    .error-hint { font-size: 12px; color: rgba(255,255,255,0.25); margin-top: 8px; }
-    .source-badge { font-size: 10px; background: rgba(45,90,135,0.5); padding: 1px 6px; border-radius: 4px; margin-left: 6px; vertical-align: middle; }
-    .fab { position: fixed; bottom: 24px; right: 24px; width: 48px; height: 48px; border-radius: 50%; background: linear-gradient(135deg, #2d5a87, #1e3a5f); color: #fff; border: none; font-size: 20px; cursor: pointer; box-shadow: 0 4px 16px rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; }
+    .fab { position: fixed; bottom: 24px; right: 24px; width: 48px; height: 48px; border-radius: 50%; background: linear-gradient(135deg, #2d5a87, #1e3a5f); color: #fff; border: none; cursor: pointer; box-shadow: 0 4px 16px rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; }
     .fab:active { transform: scale(0.95); }
     .fab-icon { font-size: 18px; }
     .hide { display: none !important; }
+
+    /* ===== 内嵌阅读器 ===== */
+    .reader-page {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: #fff; color: #222;
+      z-index: 200;
+      display: flex; flex-direction: column;
+      transform: translateX(100%);
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .reader-page.open { transform: translateX(0); }
+    .reader-header { display: flex; align-items: center; padding: 10px 14px; border-bottom: 1px solid #eee; background: #f8f8f8; position: sticky; top: 0; z-index: 10; gap: 10px; }
+    .back-btn { background: none; border: none; color: #2d5a87; cursor: pointer; padding: 6px 10px; border-radius: 20px; font-size: 15px; white-space: nowrap; flex-shrink: 0; }
+    .back-btn:active { background: #eee; }
+    .reader-source { font-size: 12px; color: #999; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .open-original { background: none; border: 1px solid #ddd; color: #666; font-size: 11px; padding: 4px 10px; border-radius: 20px; cursor: pointer; white-space: nowrap; flex-shrink: 0; }
+    .open-original:active { background: #eee; }
+    .reader-body { flex: 1; overflow-y: auto; padding: 20px 18px 60px; max-width: 720px; margin: 0 auto; width: 100%; }
+    .reader-title { font-size: 22px; font-weight: 700; color: #111; line-height: 1.6; margin-bottom: 10px; }
+    .reader-meta { font-size: 13px; color: #999; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid #f0f0f0; }
+    .reader-content { font-size: 17px; line-height: 1.9; color: #333; }
+    .reader-content p { margin-bottom: 16px; }
+    .reader-content img { max-width: 100%; height: auto; border-radius: 8px; margin: 12px 0; display: block; }
+    .reader-content a { color: #2d5a87; text-decoration: none; }
+    .reader-content a:hover { text-decoration: underline; }
+    .reader-content blockquote { border-left: 3px solid #2d5a87; padding-left: 14px; margin: 14px 0; color: #555; font-style: italic; }
+    .reader-loading { text-align: center; padding: 80px 0; color: #999; }
+    .reader-loading-spinner { width: 36px; height: 36px; border: 3px solid #eee; border-top-color: #2d5a87; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 16px; }
+    .reader-error { text-align: center; padding: 60px 20px; color: #999; }
+    .reader-error .hint { font-size: 13px; margin-top: 10px; color: #bbb; line-height: 1.8; }
+    .reader-error .hint a { color: #2d5a87; }
+    .readability-mode { background: #fff; }
   </style>
 </head>
 <body>
 
+<!-- ===== 列表页 ===== -->
 <header>
-  <div class="header-title"><span>&#x1F525;</span><span>Hot Search</span></div>
+  <div class="header-title"><span>🔥</span><span>热榜</span></div>
   <div class="tabs" id="tabs"></div>
 </header>
 
 <div class="refresh-bar">
   <span id="updateTime">--</span>
-  <button class="refresh-btn" id="refreshBtn">&#x1F504; Refresh</button>
+  <span id="platformCount" style="font-size:12px;color:rgba(255,255,255,0.4)"></span>
+  <button class="refresh-btn" id="refreshBtn">🔄 刷新</button>
 </div>
 
 <div id="list" class="list"></div>
-<div id="fab" class="fab hide"><span class="fab-icon">&#x2191;</span></div>
+<div id="fab" class="fab hide" onclick="window.scrollTo({top:0,behavior:'smooth'})"><span class="fab-icon">↑</span></div>
+
+<!-- ===== 内嵌阅读器 ===== -->
+<div id="readerPage" class="reader-page">
+  <div class="reader-header">
+    <button class="back-btn" id="backBtn">← 返回</button>
+    <span class="reader-source" id="readerSource"></span>
+    <button class="open-original" id="openOriginal">浏览器打开</button>
+  </div>
+  <div class="reader-body" id="readerBody">
+    <div class="reader-loading">
+      <div class="reader-loading-spinner"></div>
+      正在加载文章内容...
+    </div>
+  </div>
+</div>
 
 <script>
 // ============================================================
@@ -75,24 +123,18 @@ var PLATFORMS = [
   { id: 'ithome',  name: 'IT之家' },
 ];
 
-// 兜底数据（tophub.today 服务端渲染，SPA 无法直抓时显示这些）
 var FALLBACK_DATA = {
   all: [
     {title: "70年产权的房子，实际能住多少年？", source: "知乎", hot: "18497", url: "https://www.zhihu.com/question/2018272205939721140"},
     {title: "为什么云南泼水节变味了？", source: "知乎", hot: "15941", url: "https://www.zhihu.com/question/652795560"},
-    {title: "如何看待番茄平台上月稿费80万的金番作者使用AI写作...", source: "知乎", hot: "12340", url: "https://www.zhihu.com/question/2027490615500313080"},
-    {title: "网传DeepSeek V4即将发布并提出「去CUDA化」...", source: "知乎", hot: "11324", url: "https://www.zhihu.com/question/2028817450829976782"},
+    {title: "网传DeepSeek V4即将发布并提出「去CUDA化」", source: "知乎", hot: "11324", url: "https://www.zhihu.com/question/2028817450829976782"},
     {title: "公司升级服务器淘汰72根DDR4内存被员工捡回：约2.25TB", source: "IT之家", hot: "9171", url: "https://www.ithome.com/0/940/930.htm"},
-    {title: "梁家辉五封影帝，马来西亚籍廖子妤打败章子怡夺影后", source: "知乎", hot: "8907", url: "https://www.zhihu.com/question/2029285410929480068"},
-    {title: "网传社科院发布2025中国城市宜居水平排行榜", source: "知乎", hot: "8507", url: "https://www.zhihu.com/question/2028968003417498254"},
+    {title: "梁家辉五封影帝", source: "知乎", hot: "8907", url: "https://www.zhihu.com/question/2029285410929480068"},
     {title: "WSBK荷兰站张雪机车斩获第七名", source: "知乎", hot: "7576", url: "https://www.zhihu.com/question/2029259993174601951"},
-    {title: "内存涨价会不会倒逼软件优化？", source: "知乎", hot: "6418", url: "https://www.zhihu.com/question/2018673868974370892"},
-    {title: "美以袭击伊朗进入第52天，当前局势如何？", source: "知乎", hot: "6306", url: "https://www.zhihu.com/question/2029314093757064288"},
-    {title: "四大一线城市房价全线上涨，这代表楼市回暖吗？", source: "知乎", hot: "6048", url: "https://www.zhihu.com/question/2028419848833708708"},
     {title: "日本发生7.5级地震", source: "微博", hot: "150万", url: "https://s.weibo.com/weibo?q=%E6%97%A5%E6%9C%AC7.5%E7%BA%A7%E5%9C%B0%E9%9C%87"},
-    {title: "中方回应美国截停中国驶往伊朗油轮", source: "微博", hot: "90万", url: "https://s.weibo.com/weibo?q=%E4%B8%AD%E6%96%B9%E5%9B%9E%E5%BA%94%E7%BE%8E%E5%9B%BD%E6%88%AA%E5%81%9C%E4%B8%AD%E5%9B%BD%E9%A9%B6%E5%BE%80%E4%BC%8A%E6%9C%97%E6%B2%B9%E8%BD%AE"},
-    {title: "2025年我国人均读书8.39本", source: "微博", hot: "73万", url: "https://s.weibo.com/weibo?q=2025%E5%B9%B4%E6%88%91%E5%9B%BD%E4%BA%BA%E5%9D%87%E8%AF%BB%E4%B9%A68.39%E6%9C%AC"},
-    {title: "华为Pura系列新品发布", source: "微博", hot: "72万", url: "https://s.weibo.com/weibo?q=%E5%8D%8E%E4%B8%BAPura%E7%B3%BB%E5%88%97%E6%96%B0%E5%93%81%E5%8F%91%E5%B8%83"}
+    {title: "美以袭击伊朗进入第52天", source: "知乎", hot: "6306", url: "https://www.zhihu.com/question/2029314093757064288"},
+    {title: "四大一线城市房价全线上涨", source: "知乎", hot: "6048", url: "https://www.zhihu.com/question/2028419848833708708"},
+    {title: "华为Pura X Max发布", source: "微博", hot: "72万", url: "https://s.weibo.com/weibo?q=%E5%8D%8E%E4%B8%BAPuraXMax"}
   ]
 };
 
@@ -105,76 +147,166 @@ function escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
-// 解析 tophub.today HTML，提取热榜数据
-function parseTopHubHTML(html, platformId) {
+// 通过 Worker 代理加载文章内容
+function loadArticleContent(url) {
+  return new Promise(function(resolve) {
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', WORKER_URL + '/proxy?url=' + encodeURIComponent(url), true);
+    xhr.timeout = 20000;
+    xhr.onload = function() {
+      if (xhr.status === 200 && xhr.responseText && xhr.responseText.length > 200) {
+        resolve(xhr.responseText);
+      } else {
+        resolve(null);
+      }
+    };
+    xhr.onerror = function() { resolve(null); };
+    xhr.ontimeout = function() { resolve(null); };
+    xhr.send();
+  });
+}
+
+// 解析文章正文
+function parseArticle(html) {
   try {
     var parser = new DOMParser();
     var doc = parser.parseFromString(html, 'text/html');
-    var items = [];
-    
-    // 遍历所有包含热榜条目的列表
-    var allLinks = doc.querySelectorAll('a[href*="zhihu"], a[href*="weibo"], a[href*="baidu"], a[href*="thepaper"], a[href*="mp.weixin"], a[href*="ithome"], a[href*="douban"], a[href*="huxiu"]');
-    
-    allLinks.forEach(function(link) {
-      var href = link.href;
-      var text = link.textContent.trim();
-      
-      // 过滤掉太短的标题、导航链接等
-      if (text.length < 8) return;
-      if (href.includes('javascript') || href === '#') return;
-      if (href.includes('tophub.today')) return;
-      
-      // 排除导航/菜单链接
-      var excludePatterns = ['登录', '注册', '首页', '晚报', '动态', '追踪', '榜中榜', '热文库', '话题', '日历', '更多'];
-      for (var i = 0; i < excludePatterns.length; i++) {
-        if (text === excludePatterns[i] || text.startsWith(excludePatterns[i])) return;
-      }
-      
-      // 获取对应的热度值（向上查找最近的 .w1 span）
-      var hotValue = '';
-      var parent = link.closest('.w1');
-      if (parent) {
-        var hotEl = parent.querySelector('span');
-        if (hotEl) hotValue = hotEl.textContent.replace(/热度|\\s/g, '').trim();
-      }
-      
-      // 获取来源（向上找最近的 .t 元素）
-      var sourceEl = link.closest('.node-i, .nodeblock');
-      var sourceName = '';
-      if (sourceEl) {
-        var tEl = sourceEl.querySelector('.t');
-        if (tEl) sourceName = tEl.textContent.replace(/\\s/g, '').trim();
-        else {
-          // 尝试从父级获取来源名
-          var titleEl = sourceEl.querySelector('a:not([href*="javascript"])');
-          if (titleEl && titleEl !== link) {
-            sourceName = titleEl.textContent.replace(/\\s/g, '').trim();
-          }
+
+    // 移除干扰元素
+    ['script','style','nav','header','footer','aside',
+     '.sidebar','.share','.social','.toolbar','.navbar',
+     '.comment','.comments','.advertisement','.ad',
+     '.fixed','.sticky','.popup','.modal',
+     '.weixin-qrcode','.qrcode','.code',
+     '.author-info','.author-bio',
+     '.article-actions','.action-bar',
+     '[role="navigation"]','[role="banner"]','[role="contentinfo"]'
+    ].forEach(function(sel) {
+      try { doc.querySelectorAll(sel).forEach(function(el){ el.remove(); }); } catch(e){}
+    });
+
+    // 提取标题
+    var title = '';
+    var h1 = doc.querySelector('h1') ||
+              doc.querySelector('.article-title') ||
+              doc.querySelector('.post-title') ||
+              doc.querySelector('#article-title') ||
+              doc.querySelector('article h2');
+    if (h1) title = h1.textContent.trim();
+
+    // meta description
+    var metaDesc = '';
+    var metaD = doc.querySelector('meta[name="description"]');
+    if (metaD) metaDesc = (metaD.getAttribute('content') || '').trim();
+
+    // 提取正文
+    var contentEl = doc.querySelector('article') ||
+                    doc.querySelector('.article-content') ||
+                    doc.querySelector('.post-content') ||
+                    doc.querySelector('#article-content') ||
+                    doc.querySelector('.entry-content') ||
+                    doc.querySelector('.content') ||
+                    doc.querySelector('#content') ||
+                    doc.querySelector('main') ||
+                    doc.body;
+
+    var paragraphs = [];
+    var els = [];
+    try { els = contentEl.querySelectorAll('p, h2, h3, h4, li, blockquote'); } catch(e){}
+
+    if (els.length >= 3) {
+      els.forEach(function(el) {
+        var text = el.textContent.trim().replace(/\s+/g,' ');
+        if (text.length < 15) return;
+        if (['登录','注册','收藏','评论','分享','上一篇','下一篇','相关推荐','相关阅读','©'].some(function(w){return text.startsWith(w);})) return;
+        var tag = el.tagName.toLowerCase();
+        if (['h2','h3','h4'].includes(tag)) {
+          paragraphs.push({ type: 'heading', text: text });
+        } else if (tag === 'blockquote') {
+          paragraphs.push({ type: 'quote', text: text });
+        } else {
+          paragraphs.push({ type: 'p', text: text });
         }
-      }
-      
-      items.push({
-        title: text.substring(0, 100),
-        source: sourceName || platformId,
-        hot: hotValue,
-        url: href
       });
-    });
-    
-    // 去重
-    var seen = {};
-    items = items.filter(function(item) {
-      if (seen[item.title]) return false;
-      seen[item.title] = true;
-      return true;
-    });
-    
-    return items;
+    }
+
+    // 降级：取所有文本
+    if (paragraphs.length < 3) {
+      var texts = doc.body.textContent.replace(/[\n\r]+/g,'\n').split('\n').filter(function(t){
+        return t.trim().length > 30;
+      }).slice(0, 30);
+      paragraphs = texts.map(function(t){ return { type: 'p', text: t.trim() }; });
+    }
+
+    return { title: title, desc: metaDesc, paragraphs: paragraphs };
   } catch(e) {
     return null;
   }
 }
 
+// 打开阅读器
+function openReader(title, url, source) {
+  var readerPage = document.getElementById('readerPage');
+  var readerBody = document.getElementById('readerBody');
+  var readerSource = document.getElementById('readerSource');
+  var openOriginal = document.getElementById('openOriginal');
+
+  readerSource.textContent = source || '';
+  openOriginal.style.display = '';
+  openOriginal.onclick = function() { window.open(url, '_blank'); };
+
+  readerBody.innerHTML = '<div class="reader-loading"><div class="reader-loading-spinner"></div>正在加载文章内容...</div>';
+  readerPage.classList.add('open');
+  document.body.style.overflow = '';
+
+  loadArticleContent(url).then(function(html) {
+    if (!html) {
+      readerBody.innerHTML = '<div class="reader-error">无法加载文章内容<div class="hint">该网站可能禁止了抓取<br><a href="' + url + '" target="_blank">点击这里在浏览器中打开</a></div></div>';
+      return;
+    }
+
+    var article = parseArticle(html);
+    if (!article || !article.paragraphs || article.paragraphs.length === 0) {
+      readerBody.innerHTML = '<div class="reader-error">无法解析文章内容<div class="hint"><a href="' + url + '" target="_blank">点击这里在浏览器中打开</a></div></div>';
+      return;
+    }
+
+    var html = '<h1 class="reader-title">' + escHtml(article.title || title) + '</h1>';
+    if (article.desc) html += '<div class="reader-meta">' + escHtml(article.desc) + '</div>';
+    html += '<div class="reader-content">';
+    article.paragraphs.forEach(function(item) {
+      if (item.type === 'heading') {
+        html += '<p style="font-size:19px;font-weight:700;margin:20px 0 8px;color:#111;border-left:3px solid #2d5a87;padding-left:12px">' + escHtml(item.text) + '</p>';
+      } else if (item.type === 'quote') {
+        html += '<blockquote>' + escHtml(item.text) + '</blockquote>';
+      } else {
+        html += '<p>' + escHtml(item.text) + '</p>';
+      }
+    });
+    html += '</div>';
+    readerBody.innerHTML = html;
+    readerBody.scrollTop = 0;
+  });
+}
+
+function closeReader() {
+  document.getElementById('readerPage').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+document.getElementById('backBtn').onclick = closeReader;
+
+// 手势支持：右滑返回
+var readerStartX = 0;
+document.getElementById('readerPage').addEventListener('touchstart', function(e) {
+  readerStartX = e.touches[0].clientX;
+}, { passive: true });
+document.getElementById('readerPage').addEventListener('touchend', function(e) {
+  var delta = e.changedTouches[0].clientX - readerStartX;
+  if (delta > 80 && e.changedTouches[0].clientY < 200) closeReader();
+}, { passive: true });
+
+// 加载热搜列表
 function loadAPI(platformId) {
   return new Promise(function(resolve) {
     var timeout = setTimeout(function() {
@@ -212,27 +344,25 @@ function loadAPI(platformId) {
 function renderTabs() {
   var tabsEl = document.getElementById('tabs');
   var html = '';
-  for (var i = 0; i < PLATFORMS.length; i++) {
-    var p = PLATFORMS[i];
+  PLATFORMS.forEach(function(p) {
     var cls = p.id === currentPlatform ? 'tab active' : 'tab';
     html += '<div class="' + cls + '" data-id="' + p.id + '">' + p.name + '</div>';
-  }
+  });
   tabsEl.innerHTML = html;
-  var tabs = tabsEl.querySelectorAll('.tab');
-  for (var j = 0; j < tabs.length; j++) {
-    tabs[j].addEventListener('click', function() {
+  tabsEl.querySelectorAll('.tab').forEach(function(tab) {
+    tab.onclick = function() {
       currentPlatform = this.getAttribute('data-id');
       renderTabs();
       renderList();
       scrollToTop();
-    });
-  }
+    };
+  });
 }
 
 function scrollToTop() { window.scrollTo({ top: 0, behavior: 'smooth' }); }
 
 function showLoading() {
-  document.getElementById('list').innerHTML = '<div class="loading"><div class="spinner"></div>Loading...</div>';
+  document.getElementById('list').innerHTML = '<div class="loading"><div class="spinner"></div>加载中...</div>';
 }
 
 function renderList() {
@@ -240,69 +370,59 @@ function renderList() {
   var items = dataCache[currentPlatform];
   if (!items || items.length === 0) {
     var hint = _netError
-      ? '<div class="error-hint">实时数据获取失败，显示本地缓存数据<br>数据来源：tophub.today</div>'
-      : '<div class="error-hint">数据加载失败，请点击刷新按钮重试</div>';
-    listEl.innerHTML = '<div class="error-msg">No data. Try refresh.<span class="source-badge">tophub.today</span>' + hint + '</div>';
+      ? '<div class="error-msg">无法获取实时数据<br><span style="font-size:12px;color:rgba(255,255,255,0.25)">显示本地缓存 · 数据来源：hotsearch-worker</span></div>'
+      : '<div class="error-msg">暂无数据</div>';
+    listEl.innerHTML = hint;
     return;
   }
-  window._netError = false;
   var html = '';
-  for (var i = 0; i < items.length; i++) {
-    var item = items[i];
+  items.forEach(function(item, i) {
     var rank = i + 1;
-    var rankCls = rank === 1 ? 'rank top1' : rank === 2 ? 'rank top2' : rank === 3 ? 'rank top3' : 'rank other';
-    var hotSvg = rank <= 3 ? '<svg class="hot-icon" viewBox="0 0 24 24" fill="none"><path d="M12 2C10.5 6 7 8 7 12c0 2.8 2.2 5 5 5s5-2.2 5-5c0-4-3.5-6-5-10z" fill="#ff4757"/></svg>' : '';
-    html += '<div class="item" data-url="' + (item.url || '#') + '">' +
-      '<div class="' + rankCls + '">' + rank + '</div>' +
-      hotSvg +
+    var rankCls = rank === 1 ? 'top1' : rank === 2 ? 'top2' : rank === 3 ? 'top3' : 'other';
+    html += '<div class="item" data-title="' + escHtml(item.title) + '" data-url="' + escHtml(item.url) + '" data-source="' + escHtml(item.source || '') + '">' +
+      '<div class="rank ' + rankCls + '">' + rank + '</div>' +
       '<div class="content">' +
         '<div class="title">' + escHtml(item.title) + '</div>' +
         '<div class="source-tag">' + escHtml(item.source || '') + (item.hot ? ' · ' + item.hot : '') + '</div>' +
       '</div>' +
     '</div>';
-  }
+  });
   listEl.innerHTML = html;
-  var itemEls = listEl.querySelectorAll('.item');
-  for (var k = 0; k < itemEls.length; k++) {
-    itemEls[k].addEventListener('click', function() {
-      var url = this.getAttribute('data-url');
-      if (url && url !== '#') window.open(url, '_blank');
-    });
-  }
+  listEl.querySelectorAll('.item').forEach(function(el) {
+    el.onclick = function() {
+      openReader(
+        this.getAttribute('data-title'),
+        this.getAttribute('data-url'),
+        this.getAttribute('data-source')
+      );
+    };
+  });
 }
 
 async function loadAll() {
   showLoading();
-  // 预加载当前平台
   var items = await loadAPI(currentPlatform);
   dataCache[currentPlatform] = items;
-
-  // 其他平台暂时用兜底
-  PLATFORMS.forEach(function(p) {
-    if (!dataCache[p.id]) {
-      dataCache[p.id] = FALLBACK_DATA['all'] || [];
-    }
-  });
-  
+  document.getElementById('platformCount').textContent = items.length > 0 ? items.length + ' 条' : '';
   renderList();
   var now = new Date();
-  document.getElementById('updateTime').textContent =
-    'Updated ' + ('0'+now.getHours()).slice(-2) + ':' + ('0'+now.getMinutes()).slice(-2);
+  document.getElementById('updateTime').textContent = '更新 ' + ('0'+now.getHours()).slice(-2) + ':' + ('0'+now.getMinutes()).slice(-2);
 }
-
-document.getElementById('refreshBtn').addEventListener('click', loadAll);
-document.getElementById('fab').addEventListener('click', scrollToTop);
 
 window.addEventListener('scroll', function() {
   document.getElementById('fab').classList.toggle('hide', window.scrollY < 300);
 });
 
+document.getElementById('refreshBtn').onclick = loadAll;
 renderTabs();
 loadAll();
 
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js').catch(function() {});
-}
+// 每5分钟自动刷新（非阅读器打开时）
+setInterval(function() {
+  if (!document.getElementById('readerPage').classList.contains('open')) {
+    loadAll();
+  }
+}, 5 * 60 * 1000);
 </script>
 </body>
 </html>
