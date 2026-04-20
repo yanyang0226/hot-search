@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <meta name="theme-color" content="#1e3a5f">
-  <meta name="description" content="Hot Search Aggregator">
   <title>Hot Search</title>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#x1F525;</text></svg>">
@@ -38,18 +37,10 @@
     .error-msg { text-align: center; padding: 40px 20px; color: rgba(255,255,255,0.4); font-size: 14px; }
     .fab { position: fixed; bottom: 24px; right: 24px; width: 48px; height: 48px; border-radius: 50%; background: linear-gradient(135deg, #2d5a87, #1e3a5f); color: #fff; border: none; font-size: 20px; cursor: pointer; box-shadow: 0 4px 16px rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; }
     .fab:active { transform: scale(0.95); }
-    .install-banner { background: linear-gradient(135deg, #1e3a5f, #2d5a87); color: #fff; padding: 12px 20px; font-size: 13px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid rgba(255,255,255,0.1); }
-    .install-banner span { flex: 1; }
-    .install-btn { background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: #fff; padding: 6px 14px; border-radius: 16px; font-size: 12px; cursor: pointer; white-space: nowrap; }
-    .install-btn:active { background: rgba(255,255,255,0.3); }
     .hide { display: none !important; }
   </style>
 </head>
 <body>
-<div id="installBanner" class="install-banner hide">
-  <span>&#x1F449; Install to home screen</span>
-  <button class="install-btn" id="installBtn">Install</button>
-</div>
 
 <header>
   <div class="header-title"><span>&#x1F525;</span><span>Hot Search</span></div>
@@ -65,41 +56,63 @@
 <div id="fab" class="fab hide" id="fabBtn">&#x2191;</div>
 
 <script>
-var PLATFORMS = [
-  { id: 'baidu',  name: 'Baidu',   url: 'https://top.baidu.com' },
-  { id: 'weibo',  name: 'Weibo',   url: 'https://weibo.com' },
-  { id: 'zhihu',  name: 'Zhihu',   url: 'https://www.zhihu.com' },
-  { id: 'douyin', name: 'Douyin',  url: 'https://www.douyin.com' },
-];
+window._hotData = null;
 
-var CORS_PROXY = 'https://cors-proxy.haiyun954123.workers.dev/';
-var API_BASE = 'https://zj.v.api.aa1.cn';
-var API_MAP = {
-  baidu:  '/api/baidu-rs/',
-};
+var PLATFORMS = [
+  { id: 'baidu',  name: 'Baidu',   api: 'https://zj.v.api.aa1.cn/api/baidu-rs/' },
+  { id: 'weibo',  name: 'Weibo',   api: 'https://zj.v.api.aa1.cn/api/weibo-rs/' },
+  { id: 'zhihu',  name: 'Zhihu',   api: 'https://zj.v.api.aa1.cn/api/zhihu-rs/' },
+  { id: 'douyin', name: 'Douyin',  api: 'https://zj.v.api.aa1.cn/api/douyin-rs/' },
+];
 
 var currentPlatform = 'baidu';
 var dataCache = {};
-var deferredPrompt = null;
+var loadScriptId = 0;
 
-document.addEventListener('DOMContentLoaded', function() {
-  document.getElementById('refreshBtn').addEventListener('click', loadAll);
-  document.getElementById('fabBtn').addEventListener('click', scrollToTop);
-  document.getElementById('installBtn').addEventListener('click', installApp);
-});
+function jsonp(url, callback) {
+  var id = 'cb_' + (++loadScriptId);
+  var script = document.createElement('script');
+  var timeout = setTimeout(function() {
+    cleanup();
+    callback(null);
+  }, 12000);
 
-window.addEventListener('beforeinstallprompt', function(e) {
-  e.preventDefault();
-  deferredPrompt = e;
-  document.getElementById('installBanner').classList.remove('hide');
-});
+  function cleanup() {
+    clearTimeout(timeout);
+    delete window[id];
+    if (script.parentNode) script.parentNode.removeChild(script);
+  }
 
-function installApp() {
-  if (!deferredPrompt) return;
-  deferredPrompt.prompt();
-  deferredPrompt.userChoice.then(function(result) {
-    deferredPrompt = null;
-    document.getElementById('installBanner').classList.add('hide');
+  window[id] = function(data) {
+    cleanup();
+    callback(data);
+  };
+
+  var sep = url.indexOf('?') >= 0 ? '&' : '?';
+  script.src = url + sep + 'callback=' + id;
+  script.onerror = function() {
+    cleanup();
+    callback(null);
+  };
+  document.head.appendChild(script);
+}
+
+function loadAPI(platformId, callback) {
+  var p = PLATFORMS.find(function(x) { return x.id === platformId; });
+  if (!p) { callback([]); return; }
+  jsonp(p.api, function(data) {
+    if (!data || !data.data || !Array.isArray(data.data)) {
+      callback([]);
+      return;
+    }
+    var items = data.data.map(function(item) {
+      return {
+        title: item.title || item.word || '',
+        desc: item.desc || item.hot || '',
+        url: item.mobilUrl || item.url || ''
+      };
+    });
+    callback(items);
   });
 }
 
@@ -133,11 +146,16 @@ function showLoading() {
   document.getElementById('list').innerHTML = '<div class="loading"><div class="spinner"></div>Loading...</div>';
 }
 
+function escHtml(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
 function renderList() {
   var listEl = document.getElementById('list');
   var items = dataCache[currentPlatform];
   if (!items || items.length === 0) {
-    listEl.innerHTML = '<div class="error-msg">No data. Check network and try refresh.</div>';
+    listEl.innerHTML = '<div class="error-msg">No data. Try refresh.</div>';
     return;
   }
   var html = '';
@@ -146,15 +164,14 @@ function renderList() {
     var rank = i + 1;
     var rankCls = rank === 1 ? 'rank top1' : rank === 2 ? 'rank top2' : rank === 3 ? 'rank top3' : 'rank other';
     var hotSvg = rank <= 3 ? '<svg class="hot-icon" viewBox="0 0 24 24" fill="none"><path d="M12 2C10.5 6 7 8 7 12c0 2.8 2.2 5 5 5s5-2.2 5-5c0-4-3.5-6-5-10z" fill="#ff4757"/></svg>' : '';
-    var desc = item.desc || item.hot_score || '';
-    var title = item.word || item.title || item.name || JSON.stringify(item);
-    var searchUrl = 'https://www.baidu.com/s?wd=' + encodeURIComponent(item.word || item.title || '');
-    html += '<div class="item" data-url="' + searchUrl + '">' +
+    var searchUrl = 'https://www.baidu.com/s?wd=' + encodeURIComponent(item.title);
+    var link = item.url || searchUrl;
+    html += '<div class="item" data-url="' + link + '">' +
       '<div class="' + rankCls + '">' + rank + '</div>' +
       hotSvg +
       '<div class="content">' +
-        '<div class="title">' + escHtml(title) + '</div>' +
-        (desc ? '<div class="desc">' + escHtml(desc) + '</div>' : '') +
+        '<div class="title">' + escHtml(item.title) + '</div>' +
+        (item.desc ? '<div class="desc">' + escHtml(item.desc) + '</div>' : '') +
       '</div>' +
     '</div>';
   }
@@ -162,52 +179,43 @@ function renderList() {
   var itemEls = listEl.querySelectorAll('.item');
   for (var k = 0; k < itemEls.length; k++) {
     itemEls[k].addEventListener('click', function() {
-      var url = this.getAttribute('data-url');
-      window.open(url, '_blank');
+      window.open(this.getAttribute('data-url'), '_blank');
     });
-  }
-}
-
-function escHtml(s) {
-  if (!s) return '';
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
-async function loadAPI(platform) {
-  var apiPath = API_MAP[platform];
-  if (!apiPath) return [];
-  try {
-    var targetUrl = API_BASE + apiPath;
-    var proxyUrl = CORS_PROXY + encodeURIComponent(targetUrl).replace(/%2F/g, '/');
-    var resp = await fetch(proxyUrl, { signal: AbortSignal.timeout(10000) });
-    var json = await resp.json();
-    if (json.data && Array.isArray(json.data)) {
-      return json.data.map(function(item) {
-        return {
-          word: item.word || item.title,
-          desc: item.desc || item.hot || '',
-          url: item.url || item.mobilUrl || ''
-        };
-      });
-    }
-    return [];
-  } catch (e) {
-    console.warn(platform, 'load failed', e);
-    return [];
   }
 }
 
 async function loadAll() {
   showLoading();
-  for (var i = 0; i < PLATFORMS.length; i++) {
-    var p = PLATFORMS[i];
-    dataCache[p.id] = await loadAPI(p.id);
+  var loaded = 0;
+  var done = false;
+  var pending = PLATFORMS.length;
+
+  function checkDone() {
+    if (done) return;
+    loaded++;
+    if (loaded >= pending) {
+      done = true;
+      renderList();
+      var now = new Date();
+      var t = ('0'+now.getHours()).slice(-2) + ':' + ('0'+now.getMinutes()).slice(-2);
+      document.getElementById('updateTime').textContent = 'Updated ' + t;
+    }
   }
-  renderList();
-  var now = new Date();
-  var t = ('0'+now.getHours()).slice(-2) + ':' + ('0'+now.getMinutes()).slice(-2);
-  document.getElementById('updateTime').textContent = 'Updated ' + t;
+
+  for (var i = 0; i < PLATFORMS.length; i++) {
+    (function(p) {
+      loadAPI(p.id, function(items) {
+        dataCache[p.id] = items;
+        checkDone();
+      });
+    })(PLATFORMS[i]);
+  }
 }
+
+document.addEventListener('DOMContentLoaded', function() {
+  document.getElementById('refreshBtn').addEventListener('click', loadAll);
+  document.getElementById('fabBtn').addEventListener('click', scrollToTop);
+});
 
 window.addEventListener('scroll', function() {
   document.getElementById('fab').classList.toggle('hide', window.scrollY < 300);
