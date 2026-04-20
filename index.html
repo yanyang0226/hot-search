@@ -36,7 +36,7 @@
     @keyframes spin { to { transform: rotate(360deg); } }
     .error-msg { text-align: center; padding: 40px 20px; color: rgba(255,255,255,0.4); font-size: 14px; line-height: 1.8; }
     .error-hint { font-size: 12px; color: rgba(255,255,255,0.25); margin-top: 8px; }
-    .offline-badge { display: inline-block; background: rgba(255,71,87,0.2); color: #ff6b7a; padding: 2px 8px; border-radius: 8px; font-size: 11px; margin-left: 6px; }
+    .source-tag { font-size: 10px; background: rgba(45,90,135,0.5); padding: 1px 6px; border-radius: 4px; margin-left: 6px; vertical-align: middle; }
     .fab { position: fixed; bottom: 24px; right: 24px; width: 48px; height: 48px; border-radius: 50%; background: linear-gradient(135deg, #2d5a87, #1e3a5f); color: #fff; border: none; font-size: 20px; cursor: pointer; box-shadow: 0 4px 16px rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; }
     .fab:active { transform: scale(0.95); }
     .fab-icon { font-size: 18px; }
@@ -59,24 +59,94 @@
 <div id="fab" class="fab hide"><span class="fab-icon">&#x2191;</span></div>
 
 <script>
-// API always wraps response in hotlist(data) - so we MUST call back from here
-window.hotlist = function(data) {
+// JSONP callback
+window._apiData = null;
+window._netError = false;
+window._loadedCount = 0;
+
+window._jsonpCallback = function(data) {
   window._apiData = data;
-  if (window._jsonpResolve) {
-    window._jsonpResolve(data);
-    window._jsonpResolve = null;
-    window._jsonpReject = null;
-  }
+  window._loadedCount++;
 };
 
+// 平台配置：使用多个可从 GitHub Pages 访问的 API
 var PLATFORMS = [
-  { id: 'baidu',  name: 'Baidu',   api: 'https://zj.v.api.aa1.cn/api/baidu-rs/' },
-  { id: 'weibo',  name: 'Weibo',   api: 'https://zj.v.api.aa1.cn/api/weibo-rs/' },
-  { id: 'zhihu',  name: 'Zhihu',   api: 'https://zj.v.api.aa1.cn/api/zhihu-rs/' },
-  { id: 'douyin', name: 'Douyin',  api: 'https://zj.v.api.aa1.cn/api/douyin-rs/' },
+  {
+    id: '36kr',
+    name: '36kr',
+    source: '创业资讯',
+    api: 'https://36kr.com/api/newsflash/index?per_page=50&page=1',
+    type: 'json',  // 直接 JSON，不走 JSONP
+    parse: function(data) {
+      if (!data || !data.data || !data.data.items) return [];
+      return data.data.items.map(function(item) {
+        var title = item.title || item.news_title || '';
+        var desc = item.summary || item.description || '';
+        return {
+          title: title,
+          desc: desc.slice(0, 60),
+          url: item.uri || item.url || 'https://36kr.com/newsflashes'
+        };
+      });
+    }
+  },
+  {
+    id: 'zhihu',
+    name: '知乎',
+    source: '知乎热榜',
+    api: 'https://www.zhihu.com/api/v3/feed/topstory/hot-lists/total?limit=50&desktop=true',
+    type: 'json',
+    parse: function(data) {
+      if (!data || !data.data) return [];
+      return data.data.map(function(item) {
+        var target = item.target || item;
+        return {
+          title: target.title || '',
+          desc: (target.excerpt || '').slice(0, 60),
+          url: target.url || 'https://www.zhihu.com'
+        };
+      });
+    }
+  },
+  {
+    id: 'baidu',
+    name: '百度',
+    source: '百度热搜',
+    api: 'https://zj.v.api.aa1.cn/api/baidu-rs/',
+    type: 'jsonp',
+    callbackName: '_jsonpCallback',
+    parse: function(data) {
+      if (!data || !data.data) return [];
+      return data.data.map(function(item) {
+        return {
+          title: item.title || item.word || '',
+          desc: (item.desc || item.hot || '').slice(0, 60),
+          url: item.mobilUrl || item.url || ''
+        };
+      });
+    }
+  },
+  {
+    id: 'weibo',
+    name: '微博',
+    source: '微博热搜',
+    api: 'https://zj.v.api.aa1.cn/api/weibo-rs/',
+    type: 'jsonp',
+    callbackName: '_jsonpCallback',
+    parse: function(data) {
+      if (!data || !data.data) return [];
+      return data.data.map(function(item) {
+        return {
+          title: item.title || '',
+          desc: (item.desc || item.hot || '').slice(0, 60),
+          url: item.mobilUrl || item.url || ''
+        };
+      });
+    }
+  }
 ];
 
-var currentPlatform = 'baidu';
+var currentPlatform = '36kr';
 var dataCache = {};
 var _scriptCounter = 0;
 
@@ -85,56 +155,71 @@ function loadAPI(platformId) {
     var p = PLATFORMS.find(function(x) { return x.id === platformId; });
     if (!p) { resolve([]); return; }
 
-    var script = document.createElement('script');
-    var resolved = false;
-    var timeout = setTimeout(function() {
-      if (!resolved) {
-        cleanup();
-        // 标记网络错误
-        window._apiData = null;
+    window._netError = false;
+    window._loadedCount = 0;
+
+    if (p.type === 'json') {
+      // 直接 fetch（需要 CORS 支持）
+      var timeout = setTimeout(function() {
         window._netError = true;
         resolve([]);
-      }
-    }, 15000);
+      }, 10000);
 
-    function cleanup() {
-      clearTimeout(timeout);
-      script.onload = null;
-      script.onerror = null;
-      if (script.parentNode) script.parentNode.removeChild(script);
-    }
-
-    // onload fires when script text has been executed (not just when received)
-    script.onload = function() {
-      if (resolved) return;
-      resolved = true;
-      cleanup();
-      var d = window._apiData;
-      if (d && d.data && Array.isArray(d.data)) {
-        var items = d.data.map(function(item) {
-          return {
-            title: item.title || item.word || item.name || '',
-            desc: item.desc || item.hot || '',
-            url: item.mobilUrl || item.url || ''
-          };
+      fetch(p.api)
+        .then(function(resp) {
+          if (!resp.ok) throw new Error('HTTP ' + resp.status);
+          return resp.json();
+        })
+        .then(function(data) {
+          clearTimeout(timeout);
+          var items = p.parse(data);
+          resolve(items);
+        })
+        .catch(function() {
+          clearTimeout(timeout);
+          window._netError = true;
+          resolve([]);
         });
-        resolve(items);
-      } else {
-        resolve([]);
+    } else {
+      // JSONP 模式
+      var script = document.createElement('script');
+      var resolved = false;
+      var timeout = setTimeout(function() {
+        if (!resolved) {
+          cleanup();
+          window._netError = true;
+          resolve([]);
+        }
+      }, 15000);
+
+      function cleanup() {
+        clearTimeout(timeout);
+        script.onload = null;
+        script.onerror = null;
+        if (script.parentNode) script.parentNode.removeChild(script);
       }
-    };
 
-    script.onerror = function() {
-      if (resolved) return;
-      resolved = true;
-      cleanup();
-      window._netError = true;
-      resolve([]);
-    };
+      // 全局回调
+      var cbName = p.callbackName || '_jsonpCallback';
+      window[cbName] = function(data) {
+        if (resolved) return;
+        resolved = true;
+        cleanup();
+        var items = p.parse(data);
+        resolve(items);
+      };
 
-    // Cache-bust to avoid browser caching old responses
-    script.src = p.api + '?callback=hotlist&t=' + (++_scriptCounter) + '_' + Date.now();
-    document.head.appendChild(script);
+      script.onerror = function() {
+        if (resolved) return;
+        resolved = true;
+        cleanup();
+        window._netError = true;
+        resolve([]);
+      };
+
+      script.src = p.api + '?callback=' + cbName + '&t=' + (++_scriptCounter) + '_' + Date.now();
+      document.head.appendChild(script);
+    }
   });
 }
 
@@ -173,10 +258,12 @@ function renderList() {
   var listEl = document.getElementById('list');
   var items = dataCache[currentPlatform];
   if (!items || items.length === 0) {
+    var platform = PLATFORMS.find(function(p) { return p.id === currentPlatform; });
+    var sourceHint = platform ? '<span class="source-tag">' + platform.source + '</span>' : '';
     var hint = window._netError
-      ? '<div class="error-hint">可能是网络问题或浏览器扩展拦截了请求<br>尝试：关闭广告拦截器 / 刷新页面 / 换个浏览器</div>'
+      ? '<div class="error-hint">可能是网络问题或该接口在当前网络下不可用<br>尝试：刷新 / 切换到其他平台 / 关闭广告拦截器</div>'
       : '<div class="error-hint">数据加载失败，请点击上方刷新按钮重试</div>';
-    listEl.innerHTML = '<div class="error-msg">No data. Try refresh.' + hint + '</div>';
+    listEl.innerHTML = '<div class="error-msg">No data. Try refresh.' + sourceHint + hint + '</div>';
     return;
   }
   window._netError = false;
@@ -186,7 +273,7 @@ function renderList() {
     var rank = i + 1;
     var rankCls = rank === 1 ? 'rank top1' : rank === 2 ? 'rank top2' : rank === 3 ? 'rank top3' : 'rank other';
     var hotSvg = rank <= 3 ? '<svg class="hot-icon" viewBox="0 0 24 24" fill="none"><path d="M12 2C10.5 6 7 8 7 12c0 2.8 2.2 5 5 5s5-2.2 5-5c0-4-3.5-6-5-10z" fill="#ff4757"/></svg>' : '';
-    var link = item.url || ('https://www.baidu.com/s?wd=' + encodeURIComponent(item.title));
+    var link = item.url || '#';
     html += '<div class="item" data-url="' + link + '">' +
       '<div class="' + rankCls + '">' + rank + '</div>' +
       hotSvg +
@@ -200,14 +287,14 @@ function renderList() {
   var itemEls = listEl.querySelectorAll('.item');
   for (var k = 0; k < itemEls.length; k++) {
     itemEls[k].addEventListener('click', function() {
-      window.open(this.getAttribute('data-url'), '_blank');
+      var url = this.getAttribute('data-url');
+      if (url && url !== '#') window.open(url, '_blank');
     });
   }
 }
 
 async function loadAll() {
   showLoading();
-  // Load all platforms in parallel using Promise.all
   var promises = PLATFORMS.map(function(p) {
     return loadAPI(p.id);
   });

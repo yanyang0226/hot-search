@@ -1,4 +1,4 @@
-const CACHE = 'hot-search-v2';
+const CACHE = 'hot-search-v3';
 const urls = ['/index.html', '/manifest.json'];
 
 self.addEventListener('install', e => {
@@ -15,15 +15,17 @@ self.addEventListener('activate', e => {
   self.clients.claim();
 });
 
-// 关键修复：不再拦截外部 API 请求，让 JSONP 正常执行
+// 只缓存同源静态资源，外部 API 一律不碰
 self.addEventListener('fetch', e => {
   const url = e.request.url;
-  // 只缓存同源静态资源，不碰外部 API 请求
-  if (!url.startsWith('https://zj.v.api.aa1.cn') &&
-      !url.startsWith('https://zj.v.api.aa1.cn')) {
-    e.respondWith(
-      caches.match(e.request).then(cached => cached || fetch(e.request))
-    );
+  if (url.includes('zj.v.api.aa1.cn') ||
+      url.includes('36kr.com') ||
+      url.includes('zhihu.com') ||
+      url.startsWith('https://api.')) {
+    return; // 放行，不拦截
   }
-  // 外部 API（JSONP）直接放行，不拦截
+  // 同源静态资源走缓存
+  e.respondWith(
+    caches.match(e.request).then(cached => cached || fetch(e.request))
+  );
 });
