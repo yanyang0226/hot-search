@@ -312,3 +312,78 @@ function jsonResponse(data, status = 200) {
     },
   });
 }
+
+// ============================================================
+// 摘要提取：在 Worker 端直接解析 HTML，返回关键信息
+// ============================================================
+function extractSummary(html, sourceUrl) {
+  // 移除干扰元素
+  let text = html
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/<style[\s\S]*?<\/style>/gi, '')
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/<nav[\s\S]*?<\/nav>/gi, '')
+    .replace(/<header[\s\S]*?<\/header>/gi, '')
+    .replace(/<footer[\s\S]*?<\/footer>/gi, '')
+    .replace(/<aside[\s\S]*?<\/aside>/gi, '');
+
+  // 提取标题
+  let title = '';
+  const titleMatch = text.match(/<h1[^>]*>([\s\S]{5,200}?)<\/h1>/i) ||
+    text.match(/<h2[^>]*class="[^"]*title[^"]*"[^>]*>([\s\S]{5,200}?)<\/h2>/i) ||
+    text.match(/<title[^>]*>([^<]{5,200})<\/title>/i);
+  if (titleMatch) title = cleanText(titleMatch[1]);
+
+  // 提取 meta description
+  let desc = '';
+  const descMatch = text.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']{20,})["']/i) ||
+    text.match(/<meta[^>]+content=["']([^"']{20,})["'][^>]+name=["']description["']/i);
+  if (descMatch) desc = cleanText(descMatch[1]).substring(0, 300);
+
+  // 移除标签后提取纯文本
+  text = text.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+
+  // 切分成句子
+  const sentences = text.split(/[。！？.？!！\n\r]+/).map(s => cleanText(s)).filter(s => s.length > 10);
+
+  // 去重
+  const seen = new Set();
+  const uniqueSents = sentences.filter(s => {
+    const key = s.substring(0, 15);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  // 句子评分
+  const scored = uniqueSents.map(s => {
+    let score = Math.min(s.length / 50, 1) * 20; // 长度分数（适中最好）
+    if (s.match(/\d{4,}/)) score += 10; // 含年份/数字
+    if (s.match(/中国|美国|政府|政策|研究|发布|表示|发现|世界|全球|首次|警告|紧急|爆发/)) score += 15;
+    if (s.match(/[\u4e00-\u9fa5]{6,}/)) score += 5; // 有中文词
+    if (s.match(/据悉|报道|获悉|从.*获悉|根据/)) score += 8;
+    // 惩罚：太短或含导航词
+    if (s.length < 15) score *= 0.3;
+    if (/^(登录|注册|收藏|评论|分享|相关|推荐|版权|首页)/.test(s)) score *= 0.1;
+    return { text: s.substring(0, 300) + (s.length > 300 ? '…' : ''), score };
+  });
+
+  scored.sort((a, b) => b.score - a.score);
+  const topSummary = scored.slice(0, 6).map(s => s.text);
+
+  // 提取关键词（高频词）
+  const words = {};
+  const wordPattern = /[\u4e00-\u9fa5]{2,4}/g;
+  const titleWords = (title.match(wordPattern) || []);
+  titleWords.forEach(w => words[w] = (words[w] || 0) + 3);
+  scored.slice(0, 10).forEach(s => {
+    (s.text.match(wordPattern) || []).forEach(w => { words[w] = (words[w] || 0) + 1; });
+  });
+  const keywords = Object.keys(words).sort((a, b) => words[b] - words[a]).slice(0, 8);
+
+  return { title, desc, summary: topSummary, keywords };
+}
+
+function cleanText(s) {
+  return (s || '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').trim();
+}

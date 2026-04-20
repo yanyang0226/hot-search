@@ -101,6 +101,88 @@ var PLATFORMS = [
   {id:'ithome',name:'IT之家'},
 ];
 
+// Worker 端摘要端点
+function loadSummary(url) {
+  return new Promise(function(resolve) {
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', WORKER_URL + '/summary?url=' + encodeURIComponent(url), true);
+    xhr.timeout = 20000;
+    xhr.onload = function() {
+      if (xhr.status === 200 && xhr.responseText) {
+        try {
+          var d = JSON.parse(xhr.responseText);
+          if (d.code === 1) { resolve(d); return; }
+        } catch(e){}
+      }
+      resolve(null);
+    };
+    xhr.onerror = function() { resolve(null); };
+    xhr.ontimeout = function() { resolve(null); };
+    xhr.send();
+  });
+}
+
+// 渲染摘要阅读器
+function renderReader(title, url, source) {
+  var readerPage = document.getElementById('readerPage');
+  var readerBody = document.getElementById('readerBody');
+  var readerSource = document.getElementById('readerSource');
+  var openOriginal = document.getElementById('openOriginal');
+  readerSource.textContent = source || '';
+  openOriginal.style.display = '';
+  openOriginal.onclick = function() { window.open(url, '_blank'); };
+  readerBody.innerHTML = '<div class="reader-loading"><div class="reader-loading-spinner"></div>正在获取文章摘要...</div>';
+  readerPage.classList.add('open');
+  document.body.style.overflow = '';
+
+  loadSummary(url).then(function(data) {
+    if (!data || !data.summary || data.summary.length === 0) {
+      renderErr('暂无法获取摘要', url); return;
+    }
+    var meta = [source || ''];
+    if (data.title) meta.push('来源采集');
+    var html = '<div class="reader-card">';
+    html += '<div class="reader-title">' + e(data.title || title) + '</div>';
+    if (data.desc) html += '<div class="reader-meta" style="font-size:13px;color:#888;margin-bottom:16px;line-height:1.6">' + e(data.desc) + '</div>';
+    html += '<div class="summary-label">📌 关键信息</div>';
+    html += '<ul class="summary-points">';
+    data.summary.forEach(function(p) {
+      html += '<li>' + e(p) + '</li>';
+    });
+    html += '</ul>';
+    if (data.keywords && data.keywords.length > 0) {
+      html += '<div style="margin-top:16px;display:flex;flex-wrap:wrap;gap:4px">';
+      data.keywords.forEach(function(kw) {
+        html += '<span class="keyword-tag">' + e(kw) + '</span>';
+      });
+      html += '</div>';
+    }
+    html += '<div style="text-align:center;padding:20px 0"><button class="ext-btn" onclick="window.open(\'' + e(url) + '\',\'_blank\')">🔗 在浏览器中完整阅读</button></div>';
+    html += '</div>';
+    readerBody.innerHTML = html;
+    readerBody.scrollTop = 0;
+  });
+}
+
+function renderErr(msg, url) {
+  readerBody.innerHTML = '<div class="reader-card"><div class="reader-error"><div style="font-size:48px;margin-bottom:12px">📰</div><div style="font-size:15px;color:#666;margin-bottom:8px">' + e(msg) + '</div><div style="font-size:13px;color:#999;margin-bottom:16px">该来源暂不支持摘要生成</div><button class="ext-btn" onclick="window.open(\'' + e(url) + '\',\'_blank\')">🌐 在浏览器打开原文</button></div></div>';
+}
+
+function closeReader() {
+  document.getElementById('readerPage').classList.remove('open');
+  document.body.style.overflow = '';
+}
+document.getElementById('backBtn').onclick = closeReader;
+var rStartX = 0;
+document.getElementById('readerPage').addEventListener('touchstart', function(e){ rStartX = e.touches[0].clientX; }, {passive:true});
+document.getElementById('readerPage').addEventListener('touchend', function(e){
+  var d = e.changedTouches[0].clientX - rStartX;
+  if (d > 80 && e.changedTouches[0].clientY < 300) closeReader();
+}, {passive:true});
+
+// 旧的 extractArticle 和 renderArticle（保留但不再使用）
+function extractArticle(html) {
+
 var FALLBACK_DATA = {
   all:[
     {title:'70年产权的房子，实际能住多少年？',source:'知乎',hot:'18497',url:'https://www.zhihu.com/question/2018272205939721140'},
@@ -224,100 +306,6 @@ function extractArticle(html) {
     return null;
   }
 }
-
-function renderReader(title, url, source) {
-  var readerPage = document.getElementById('readerPage');
-  var readerBody = document.getElementById('readerBody');
-  var readerSource = document.getElementById('readerSource');
-  var openOriginal = document.getElementById('openOriginal');
-
-  readerSource.textContent = source || '';
-  openOriginal.style.display = '';
-  openOriginal.onclick = function() { window.open(url, '_blank'); };
-  readerBody.innerHTML = '<div class="reader-loading"><div class="reader-loading-spinner"></div>正在获取文章内容...</div>';
-  readerPage.classList.add('open');
-  document.body.style.overflow = '';
-
-  var xhr = new XMLHttpRequest();
-  xhr.open('GET', WORKER_URL + '/proxy?url=' + encodeURIComponent(url), true);
-  xhr.timeout = 25000;
-  xhr.onload = function() {
-    if (xhr.status === 200 && xhr.responseText && xhr.responseText.length > 500) {
-      var art = extractArticle(xhr.responseText);
-      if (!art || art.total < 3) {
-        renderErr('无法解析文章内容', url); return;
-      }
-      renderArticle(art, title, source);
-    } else {
-      renderErr('文章加载失败', url);
-    }
-  };
-  xhr.onerror = function() { renderErr('网络连接失败', url); };
-  xhr.ontimeout = function() { renderErr('请求超时', url); };
-  xhr.send();
-
-  function renderArticle(art, fallbackTitle, fallbackSource) {
-    var meta = [fallbackSource || ''];
-    if (art.author) meta.push(art.author);
-    if (art.date) meta.push(art.date.substring(0,10));
-    if (art.total > 0) meta.push(Math.ceil(art.total/10) + '句话');
-
-    var html = '<div class="reader-card">';
-    html += '<div class="reader-title">' + e(art.title || fallbackTitle) + '</div>';
-    html += '<div class="reader-meta">' + meta.filter(Boolean).join(' · ') + '</div>';
-
-    // 关键信息摘要
-    if (art.summary && art.summary.length > 0) {
-      html += '<div class="summary-label">📌 关键信息</div>';
-      html += '<ul class="summary-points">';
-      art.summary.slice(0,6).forEach(function(p) {
-        html += '<li>' + e(p) + '</li>';
-      });
-      html += '</ul>';
-    }
-
-    // 关键词
-    if (art.keywords && art.keywords.length > 0) {
-      html += '<div style="margin-top:16px;display:flex;flex-wrap:wrap;gap:4px">';
-      art.keywords.forEach(function(kw) {
-        html += '<span class="keyword-tag">' + e(kw) + '</span>';
-      });
-      html += '</div>';
-    }
-
-    // 原文节选
-    if (art.rawParagraphs && art.rawParagraphs.length > 0) {
-      html += '<div class="raw-label">📖 原文节选</div>';
-      html += '<div class="raw-text">';
-      art.rawParagraphs.slice(0, 6).forEach(function(p) {
-        html += '<p>' + e(p) + '</p>';
-      });
-      html += '</div></div>';
-    }
-
-    html += '<div style="text-align:center;padding:20px"><button class="ext-btn" onclick="window.open(\'' + e(url) + '\',\'_blank\')">🔗 在浏览器中完整阅读</button></div>';
-    html += '</div>';
-    readerBody.innerHTML = html;
-    readerBody.scrollTop = 0;
-  }
-
-  function renderErr(msg, url) {
-    readerBody.innerHTML = '<div class="reader-card"><div class="reader-error"><div style="font-size:48px;margin-bottom:12px">📰</div><div style="font-size:15px;color:#666;margin-bottom:8px">' + e(msg) + '</div><div class="hint">试试在浏览器中打开本文<br><button class="ext-btn" onclick="window.open(\'' + e(url) + '\',\'_blank\')">🌐 立即在浏览器打开</button></div></div></div>';
-  }
-}
-
-function closeReader() {
-  document.getElementById('readerPage').classList.remove('open');
-  document.body.style.overflow = '';
-}
-document.getElementById('backBtn').onclick = closeReader;
-
-var rStartX = 0;
-document.getElementById('readerPage').addEventListener('touchstart', function(e){ rStartX = e.touches[0].clientX; }, {passive:true});
-document.getElementById('readerPage').addEventListener('touchend', function(e){
-  var d = e.changedTouches[0].clientX - rStartX;
-  if (d > 80 && e.changedTouches[0].clientY < 300) closeReader();
-}, {passive:true});
 
 // 热榜加载
 function loadAPI(pid) {
