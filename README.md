@@ -16,7 +16,7 @@
 
 ## 截图
 
-[添加截图]
+![App截图](screenshots/app-screenshot.png)
 
 ## 技术栈
 
