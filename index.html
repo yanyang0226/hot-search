@@ -758,6 +758,56 @@
       color: rgba(0, 0, 0, 0.5);
     }
 
+    /* 视频播放器 */
+    .video-player-section {
+      margin-bottom: 16px;
+    }
+
+    .video-embed-container {
+      position: relative;
+      width: 100%;
+      padding-top: 75%;
+      background: #000;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .video-embed-container iframe {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+
+    .video-error {
+      text-align: center;
+      padding: 30px 0;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 12px;
+      margin-top: 12px;
+    }
+
+    .video-error-icon {
+      font-size: 36px;
+      margin-bottom: 8px;
+      opacity: 0.5;
+    }
+
+    .video-error-text {
+      color: rgba(255, 255, 255, 0.5);
+      font-size: 13px;
+    }
+
+    body.light-mode .video-error {
+      background: rgba(0, 0, 0, 0.03);
+    }
+
+    body.light-mode .video-error-text {
+      color: rgba(0, 0, 0, 0.5);
+    }
+
     /* 摘要获取失败提示 */
     .modal-error {
       text-align: center;
@@ -877,6 +927,15 @@
 
       <!-- 卡片内容 -->
       <div class="modal-body">
+        <!-- 视频播放器区域 -->
+        <div id="videoPlayerSection" class="video-player-section hide">
+          <div id="videoEmbedContainer" class="video-embed-container"></div>
+          <div id="videoError" class="video-error hide">
+            <div class="video-error-icon">📺</div>
+            <div class="video-error-text">视频无法在此播放</div>
+          </div>
+        </div>
+
         <!-- 加载中状态 -->
         <div id="modalLoading" class="modal-loading">
           <div class="modal-spinner"></div>
@@ -1249,13 +1308,14 @@
       // 显示关闭按钮
       document.getElementById('modalCloseBtn').classList.remove('hide');
 
-      // 显示加载状态
-      document.getElementById('modalLoading').classList.remove('hide');
+      // 重置所有状态
+      document.getElementById('modalLoading').classList.add('hide');
       document.getElementById('modalError').classList.add('hide');
       document.getElementById('modalSummarySection').classList.add('hide');
       document.getElementById('modalKeywordsSection').classList.add('hide');
       document.getElementById('modalActions').classList.add('hide');
       document.getElementById('modalSourceUrl').classList.add('hide');
+      document.getElementById('videoPlayerSection').classList.add('hide');
 
       // 设置平台和排名
       document.getElementById('modalPlatform').textContent = platformName;
@@ -1263,8 +1323,101 @@
       document.getElementById('modalTitle').textContent = '加载中...';
       document.getElementById('modalDesc').textContent = '';
 
+      // 如果是抖音链接，尝试嵌入视频
+      if (isDouyinUrl(url)) {
+        document.getElementById('modalLoading').classList.remove('hide');
+        document.getElementById('modalLoading').innerHTML =
+          '<div class="modal-spinner"></div><div class="modal-loading-text">正在加载视频...</div>';
+        tryEmbedDouyinVideo(url);
+        return;
+      }
+
       // 获取摘要
       loadSummary(url);
+    }
+
+    // 判断是否是抖音链接
+    function isDouyinUrl(url) {
+      return url && (url.includes('douyin.com') || url.includes('v.douyin.com'));
+    }
+
+    // 提取抖音视频ID
+    function extractDouyinVideoId(url) {
+      // 匹配多种抖音URL格式
+      var patterns = [
+        /video\/(\d+)/,
+        /(\d{19,})/,
+        /\/([A-Za-z0-9_-]+)$/
+      ];
+      for (var i = 0; i < patterns.length; i++) {
+        var match = url.match(patterns[i]);
+        if (match) return match[1];
+      }
+      return null;
+    }
+
+    // 尝试嵌入抖音视频
+    function tryEmbedDouyinVideo(url) {
+      var videoId = extractDouyinVideoId(url);
+      var embedContainer = document.getElementById('videoEmbedContainer');
+      var videoPlayerSection = document.getElementById('videoPlayerSection');
+      var videoError = document.getElementById('videoError');
+      var loadingEl = document.getElementById('modalLoading');
+
+      if (!videoId) {
+        showVideoError();
+        return;
+      }
+
+      // 尝试使用 embed 方式
+      var embedUrl = 'https://www.douyin.com/embed/' + videoId;
+
+      // 创建iframe
+      var iframe = document.createElement('iframe');
+      iframe.src = embedUrl;
+      iframe.allow = 'autoplay; fullscreen';
+      iframe.allowFullscreen = true;
+      iframe.onload = function() {
+        // 视频加载成功
+        loadingEl.classList.add('hide');
+        videoError.classList.add('hide');
+        document.getElementById('modalTitle').textContent = '🎵 抖音视频';
+        document.getElementById('modalDesc').textContent = '点击播放按钮观看视频';
+        document.getElementById('modalActions').classList.remove('hide');
+        document.getElementById('modalSourceUrl').classList.remove('hide');
+        document.getElementById('modalSourceUrl').textContent = url;
+      };
+      iframe.onerror = function() {
+        showVideoError();
+      };
+
+      // 超时处理
+      setTimeout(function() {
+        if (loadingEl.classList.contains('hide') === false) {
+          showVideoError();
+        }
+      }, 8000);
+
+      embedContainer.innerHTML = '';
+      embedContainer.appendChild(iframe);
+      videoPlayerSection.classList.remove('hide');
+      loadingEl.classList.add('hide');
+    }
+
+    // 显示视频错误
+    function showVideoError() {
+      var videoPlayerSection = document.getElementById('videoPlayerSection');
+      var videoError = document.getElementById('videoError');
+      var loadingEl = document.getElementById('modalLoading');
+      var actionsEl = document.getElementById('modalActions');
+
+      loadingEl.classList.add('hide');
+      videoError.classList.remove('hide');
+      document.getElementById('modalTitle').textContent = '🎵 抖音视频';
+      document.getElementById('modalDesc').textContent = '视频无法在此播放';
+      actionsEl.classList.remove('hide');
+      document.getElementById('modalSourceUrl').classList.remove('hide');
+      document.getElementById('modalSourceUrl').textContent = currentSummaryUrl;
     }
 
     // 调用 API 获取摘要
