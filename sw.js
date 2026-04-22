@@ -6,11 +6,12 @@
  * - API 请求（来自 hotsearch-worker）: Network First，失败时返回空数组
  */
 
-const CACHE_VERSION = 'hot-search-v2';
+const CACHE_VERSION = 'hot-search-v3';
+const BASE_PATH = '/hot-search';
 const STATIC_ASSETS = [
-  '/',
-  '/index_new.html',
-  '/manifest.json',
+  BASE_PATH + '/',
+  BASE_PATH + '/index.html',
+  BASE_PATH + '/manifest.json',
 ];
 
 // ============================================
@@ -90,7 +91,7 @@ self.addEventListener('fetch', event => {
       }).catch(() => {
         // 如果是导航请求，返回缓存的首页
         if (event.request.mode === 'navigate') {
-          return caches.match('/index_new.html');
+          return caches.match(BASE_PATH + '/index.html');
         }
         return new Response('Offline', { status: 503 });
       });
