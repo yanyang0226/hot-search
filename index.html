@@ -1552,7 +1552,7 @@
 
     // 注册 Service Worker（PWA离线支持）
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('sw.js').catch(function() {});
+      navigator.serviceWorker.register('/hot-search/sw.js').catch(function() {});
     }
 
     /* ============================================
