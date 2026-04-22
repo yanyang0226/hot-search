@@ -1552,7 +1552,10 @@
 
     // 注册 Service Worker（PWA离线支持）
     if ('serviceWorker' in navigator) {
+      // iOS Safari PWA 支持有bug，跳过Service Worker
+    if (!/iPhone|iPad|iPod/.test(navigator.userAgent)) {
       navigator.serviceWorker.register('/hot-search/sw.js').catch(function() {});
+    }
     }
 
     /* ============================================
